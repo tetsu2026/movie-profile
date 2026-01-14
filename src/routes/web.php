@@ -1,11 +1,15 @@
 <?php
 
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PublicProfileController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+// トップページ
+Route::get('/', [HomeController::class, 'index'])->name('home');
+
+// 公開プロフィールページ
+Route::get('/users/{id}', [PublicProfileController::class, 'show'])->name('users.show');
 
 Route::get('/dashboard', function () {
     return view('dashboard');

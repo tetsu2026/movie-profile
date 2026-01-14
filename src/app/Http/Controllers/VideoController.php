@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreVideoRequest;
 use App\Models\Profile;
 use App\Models\Video;
+use App\Services\VideoEncoderService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -52,13 +53,21 @@ class VideoController extends Controller
             $video->update([
                 'original_path' => $path,
                 'file_size' => $request->file('video')->getSize(),
-                'status' => 'encoding', // Issue #17でエンコード処理を実装予定
+                'status' => 'encoding',
             ]);
 
-            // TODO: Issue #17でエンコード処理を実装
+            // エンコード処理を実行（同期処理）
+            $encoderService = new VideoEncoderService();
+            $success = $encoderService->encode($video);
 
-            return redirect()->route('videos.index')
-                ->with('success', '動画のアップロードが完了しました');
+            if ($success) {
+                return redirect()->route('videos.index')
+                    ->with('success', '動画のアップロードとエンコードが完了しました');
+            } else {
+                // エンコード失敗時は Issue #18 でリトライロジック実装予定
+                return redirect()->route('videos.index')
+                    ->with('error', '動画のエンコードに失敗しました');
+            }
 
         } catch (\Exception $e) {
             // エラー時は動画レコードを削除

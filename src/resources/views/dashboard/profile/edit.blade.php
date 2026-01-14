@@ -56,10 +56,39 @@
                             @enderror
                         </div>
 
-                        {{-- 動画選択エリア（後のIssueで実装） --}}
-                        <div class="mb-6 p-4 bg-gray-100 border border-gray-300 rounded-lg">
-                            <h3 class="text-sm font-medium text-gray-700 mb-2">サムネイル動画選択</h3>
-                            <p class="text-sm text-gray-500">動画選択機能は Issue #14 で実装予定です</p>
+                        {{-- サムネイル動画選択 --}}
+                        <div class="mb-6">
+                            <label for="thumbnail_video_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                サムネイル動画
+                            </label>
+                            <select
+                                name="thumbnail_video_id"
+                                id="thumbnail_video_id"
+                                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 @error('thumbnail_video_id') border-red-500 @enderror">
+                                <option value="">選択しない</option>
+                                @foreach($completedVideos as $video)
+                                    <option value="{{ $video->id }}"
+                                            @if(old('thumbnail_video_id', $profile->thumbnail_video_id) == $video->id) selected @endif>
+                                        {{ $video->original_filename }}
+                                        ({{ $video->created_at->format('Y/m/d H:i') }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('thumbnail_video_id')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            <p class="mt-1 text-sm text-gray-500">
+                                プロフィールページに表示される動画です。エンコード完了済みの動画のみ選択できます。
+                            </p>
+
+                            @if($completedVideos->count() === 0)
+                                <div class="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                                    <p class="text-sm text-yellow-800">
+                                        まだエンコード完了済みの動画がありません。
+                                        <a href="{{ route('videos.index') }}" class="underline font-medium">動画管理ページ</a>から動画をアップロードしてください。
+                                    </p>
+                                </div>
+                            @endif
                         </div>
 
                         {{-- ボタン --}}

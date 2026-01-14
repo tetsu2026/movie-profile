@@ -17,8 +17,16 @@ class ProfileController extends Controller
     {
         $profile = $request->user()->profile;
 
+        // エンコード完了済みの動画のみ取得
+        $completedVideos = $request->user()
+            ->videos()
+            ->where('status', 'completed')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         return view('dashboard.profile.edit', [
             'profile' => $profile,
+            'completedVideos' => $completedVideos,
         ]);
     }
 

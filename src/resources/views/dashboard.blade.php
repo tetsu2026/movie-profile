@@ -92,10 +92,14 @@
             </div>
 
             {{-- アクションリンク --}}
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <a href="{{ route('dashboard.profile.edit') }}"
                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg text-center transition duration-200 shadow-md hover:shadow-lg">
                     プロフィール編集
+                </a>
+                <a href="{{ route('preview') }}"
+                   class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-6 rounded-lg text-center transition duration-200 shadow-md hover:shadow-lg">
+                    プレビュー
                 </a>
                 <a href="{{ route('users.show', ['id' => Auth::id()]) }}"
                    class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-4 px-6 rounded-lg text-center transition duration-200 shadow-md hover:shadow-lg">
@@ -117,10 +121,6 @@
                     <div class="bg-white p-4 rounded border border-gray-200 opacity-60">
                         <p class="text-gray-600 font-semibold">動画管理</p>
                         <p class="text-sm text-gray-500">Issue #12で実装予定</p>
-                    </div>
-                    <div class="bg-white p-4 rounded border border-gray-200 opacity-60">
-                        <p class="text-gray-600 font-semibold">プレビュー</p>
-                        <p class="text-sm text-gray-500">Issue #9で実装予定</p>
                     </div>
                 </div>
             </div>

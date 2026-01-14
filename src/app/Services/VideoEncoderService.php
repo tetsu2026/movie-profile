@@ -11,21 +11,63 @@ use Symfony\Component\Process\Process;
 class VideoEncoderService
 {
     /**
-     * 動画をエンコードする
+     * 動画をエンコードする（リトライロジック付き）
      *
      * @param Video $video
      * @return bool
      */
-    public function encode(Video $video): bool
+    public function encodeWithRetry(Video $video): bool
     {
+        $maxRetries = 3;
+
+        while ($video->retry_count < $maxRetries) {
+            Log::info("動画エンコード開始 (試行 " . ($video->retry_count + 1) . "/{$maxRetries}): {$video->id}");
+
+            try {
+                $success = $this->encode($video);
+
+                if ($success) {
+                    Log::info("動画エンコード成功: {$video->id}");
+                    return true;
+                }
+
+                // エンコード失敗時
+                $video->increment('retry_count');
+                Log::warning("動画エンコード失敗 (リトライ {$video->retry_count}/{$maxRetries}): {$video->id}");
+
+            } catch (\Exception $e) {
+                $video->increment('retry_count');
+                $errorMessage = $e->getMessage();
+
+                Log::error("動画エンコードエラー (リトライ {$video->retry_count}/{$maxRetries}): {$video->id}, エラー: {$errorMessage}");
+
+                // エラーメッセージを保存
+                $video->update(['error_message' => $errorMessage]);
+            }
+        }
+
+        // 3回失敗後
+        $video->update(['status' => 'failed']);
+        Log::error("動画エンコード最終失敗: {$video->id}");
+
+        return false;
+    }
+
+    /**
+     * 動画をエンコードする（1回の試行）
+     *
+     * @param Video $video
+     * @return bool
+     * @throws \Exception
+     */
+    private function encode(Video $video): bool
+    {
+        // S3から元動画をダウンロード
+        $extension = pathinfo($video->original_path, PATHINFO_EXTENSION);
+        $tmpInputPath = sys_get_temp_dir() . '/video_' . $video->id . '_input.' . $extension;
+        $tmpOutputPath = sys_get_temp_dir() . '/video_' . $video->id . '_output.mp4';
+
         try {
-            Log::info("動画エンコード開始: {$video->id}");
-
-            // S3から元動画をダウンロード
-            $extension = pathinfo($video->original_path, PATHINFO_EXTENSION);
-            $tmpInputPath = sys_get_temp_dir() . '/video_' . $video->id . '_input.' . $extension;
-            $tmpOutputPath = sys_get_temp_dir() . '/video_' . $video->id . '_output.mp4';
-
             $contents = Storage::disk('s3')->get($video->original_path);
             file_put_contents($tmpInputPath, $contents);
 
@@ -47,7 +89,9 @@ class VideoEncoderService
             $process->run();
 
             if (!$process->isSuccessful()) {
-                throw new ProcessFailedException($process);
+                // FFmpegエラーを取得
+                $errorOutput = $process->getErrorOutput();
+                throw new \Exception("FFmpegエラー: {$errorOutput}");
             }
 
             // エンコード済み動画をS3にアップロード
@@ -58,6 +102,7 @@ class VideoEncoderService
             $video->update([
                 'encoded_path' => $encodedPath,
                 'status' => 'completed',
+                'error_message' => null, // エラーメッセージをクリア
             ]);
 
             // 元動画をS3から削除
@@ -66,30 +111,16 @@ class VideoEncoderService
                 $video->update(['original_path' => null]);
             }
 
-            // 一時ファイル削除
-            if (file_exists($tmpInputPath)) {
-                unlink($tmpInputPath);
-            }
-            if (file_exists($tmpOutputPath)) {
-                unlink($tmpOutputPath);
-            }
-
-            Log::info("動画エンコード完了: {$video->id}");
-
             return true;
 
-        } catch (\Exception $e) {
-            Log::error("動画エンコード失敗: {$video->id}, エラー: {$e->getMessage()}");
-
-            // 一時ファイル削除（存在する場合）
+        } finally {
+            // 一時ファイル削除
             if (isset($tmpInputPath) && file_exists($tmpInputPath)) {
                 unlink($tmpInputPath);
             }
             if (isset($tmpOutputPath) && file_exists($tmpOutputPath)) {
                 unlink($tmpOutputPath);
             }
-
-            return false;
         }
     }
 }

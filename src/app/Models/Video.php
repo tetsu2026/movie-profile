@@ -24,6 +24,8 @@ class Video extends Model
         'duration',
         'file_size',
         'status',
+        'retry_count',
+        'error_message',
     ];
 
     /**

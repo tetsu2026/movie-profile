@@ -61,23 +61,31 @@
                                                 {{ $video->original_filename }}
                                             </div>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
+                                        <td class="px-6 py-4">
                                             @if($video->status === 'uploading')
                                                 <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                                                     アップロード中
                                                 </span>
                                             @elseif($video->status === 'encoding')
-                                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                                                    エンコード中
-                                                </span>
+                                                <div>
+                                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                                        エンコード中 (試行 {{ $video->retry_count + 1 }}/3)
+                                                    </span>
+                                                </div>
                                             @elseif($video->status === 'completed')
                                                 <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                                                     完了
                                                 </span>
                                             @elseif($video->status === 'failed')
-                                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                                    失敗
-                                                </span>
+                                                <div>
+                                                    <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                                        エンコード失敗
+                                                    </span>
+                                                    @if($video->error_message)
+                                                        <p class="text-sm text-red-600 mt-2">{{ Str::limit($video->error_message, 100) }}</p>
+                                                    @endif
+                                                    <p class="text-sm text-gray-600 mt-1">別の動画をお試しください</p>
+                                                </div>
                                             @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

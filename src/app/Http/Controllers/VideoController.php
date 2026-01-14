@@ -56,17 +56,16 @@ class VideoController extends Controller
                 'status' => 'encoding',
             ]);
 
-            // エンコード処理を実行（同期処理）
+            // エンコード処理を実行（リトライロジック付き）
             $encoderService = new VideoEncoderService();
-            $success = $encoderService->encode($video);
+            $success = $encoderService->encodeWithRetry($video);
 
             if ($success) {
                 return redirect()->route('videos.index')
                     ->with('success', '動画のアップロードとエンコードが完了しました');
             } else {
-                // エンコード失敗時は Issue #18 でリトライロジック実装予定
                 return redirect()->route('videos.index')
-                    ->with('error', '動画のエンコードに失敗しました');
+                    ->with('error', '動画のエンコードに失敗しました。別の動画をお試しください。');
             }
 
         } catch (\Exception $e) {

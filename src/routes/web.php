@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Dashboard\ProfileController as DashboardProfileController;
 use App\Http\Controllers\HomeController;
@@ -42,7 +43,8 @@ Route::middleware('auth')->group(function () {
 
 // 管理者専用ページ（管理者のみ）
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
-    // Issue #20, #21 でユーザー管理ルートを追加予定
+    Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
+    // Issue #21 でユーザー編集・削除ルートを追加予定
 });
 
 require __DIR__.'/auth.php';

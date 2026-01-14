@@ -12,8 +12,8 @@ class PublicProfileController extends Controller
      */
     public function show(int $id): View
     {
-        // プロフィールとの関連データをEager Loadingで取得
-        $user = User::with('profile')->findOrFail($id);
+        // プロフィールと動画情報をEager Loadingで取得（N+1問題対策）
+        $user = User::with(['profile', 'profile.thumbnailVideo'])->findOrFail($id);
 
         return view('users.show', [
             'user' => $user,

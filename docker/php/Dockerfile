@@ -13,6 +13,12 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Node.js 20.x とnpmのインストール
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 # PHP拡張のインストール
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 

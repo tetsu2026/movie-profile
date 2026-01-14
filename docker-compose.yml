@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # Nginx Webサーバー
+  web:
+    build:
+      context: ./docker/nginx
+      dockerfile: Dockerfile
+    container_name: movie_prf_web
+    ports:
+      - "80:80"
+    volumes:
+      - ./src:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - movie_prf_network
+
+  # PHP + Laravel アプリケーション
+  app:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: movie_prf_app
+    volumes:
+      - ./src:/var/www/html
+    environment:
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_DATABASE=movie_prf
+      - DB_USERNAME=root
+      - DB_PASSWORD=root
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_BUCKET=videos
+      - AWS_ENDPOINT=http://minio:9000
+      - AWS_USE_PATH_STYLE_ENDPOINT=true
+    depends_on:
+      - db
+      - minio
+    networks:
+      - movie_prf_network
+
+  # MySQL データベース
+  db:
+    image: mysql:8.0
+    container_name: movie_prf_db
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: movie_prf
+      MYSQL_USER: movie_prf_user
+      MYSQL_PASSWORD: movie_prf_pass
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - movie_prf_network
+    command: --default-authentication-plugin=mysql_native_password
+
+  # MinIO (S3エミュレータ)
+  minio:
+    image: minio/minio:latest
+    container_name: movie_prf_minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - movie_prf_network
+
+volumes:
+  db_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  movie_prf_network:
+    driver: bridge

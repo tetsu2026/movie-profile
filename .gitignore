@@ -1,0 +1,38 @@
+# Laravel関連
+/src/vendor/
+/src/node_modules/
+/src/public/hot
+/src/public/storage
+/src/storage/*.key
+/src/.env
+/src/.env.backup
+/src/.env.production
+/src/.phpunit.result.cache
+/src/Homestead.json
+/src/Homestead.yaml
+/src/auth.json
+/src/npm-debug.log
+/src/yarn-error.log
+/src/.fleet
+/src/.idea
+/src/.vscode
+
+# Docker関連
+/docker/mysql/data/
+/docker/minio/data/
+
+# OS関連
+.DS_Store
+Thumbs.db
+
+# IDE関連
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# ログ
+*.log

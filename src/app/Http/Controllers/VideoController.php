@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreVideoRequest;
 use App\Models\Profile;
 use App\Models\Video;
 use Illuminate\Http\RedirectResponse;
@@ -11,6 +12,63 @@ use Illuminate\View\View;
 
 class VideoController extends Controller
 {
+    /**
+     * 動画アップロードフォームを表示
+     */
+    public function create(): View
+    {
+        return view('videos.create');
+    }
+
+    /**
+     * 動画をアップロード
+     */
+    public function store(StoreVideoRequest $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        // 動画レコード作成（status: uploading）
+        $video = $user->videos()->create([
+            'original_filename' => $request->file('video')->getClientOriginalName(),
+            'status' => 'uploading',
+        ]);
+
+        try {
+            // S3にアップロード
+            $extension = $request->file('video')->getClientOriginalExtension();
+            $path = "users/{$user->id}/original/{$video->id}.{$extension}";
+
+            $uploaded = Storage::disk('s3')->putFileAs(
+                dirname($path),
+                $request->file('video'),
+                basename($path)
+            );
+
+            if (!$uploaded) {
+                throw new \Exception('S3へのアップロードに失敗しました');
+            }
+
+            // 動画情報を更新
+            $video->update([
+                'original_path' => $path,
+                'file_size' => $request->file('video')->getSize(),
+                'status' => 'encoding', // Issue #17でエンコード処理を実装予定
+            ]);
+
+            // TODO: Issue #17でエンコード処理を実装
+
+            return redirect()->route('videos.index')
+                ->with('success', '動画のアップロードが完了しました');
+
+        } catch (\Exception $e) {
+            // エラー時は動画レコードを削除
+            $video->delete();
+
+            return redirect()->route('videos.create')
+                ->with('error', '動画のアップロードに失敗しました: ' . $e->getMessage());
+        }
+    }
+
     /**
      * 動画一覧を表示
      */

@@ -26,9 +26,8 @@
                     <h3 class="text-lg font-semibold text-gray-900">アップロード済み動画</h3>
                     <p class="text-sm text-gray-600">合計 {{ $videos->count() }} 本</p>
                 </div>
-                <a href="#"
-                   class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition duration-200 shadow-md hover:shadow-lg opacity-50 cursor-not-allowed"
-                   title="動画アップロード機能は Issue #16 で実装予定">
+                <a href="{{ route('videos.create') }}"
+                   class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition duration-200 shadow-md hover:shadow-lg">
                     動画をアップロード
                 </a>
             </div>
@@ -116,9 +115,8 @@
                         <h3 class="mt-4 text-lg font-medium text-gray-900">まだ動画がありません</h3>
                         <p class="mt-2 text-sm text-gray-500">動画をアップロードして、プロフィールに設定しましょう。</p>
                         <div class="mt-6">
-                            <a href="#"
-                               class="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 opacity-50 cursor-not-allowed"
-                               title="動画アップロード機能は Issue #16 で実装予定">
+                            <a href="{{ route('videos.create') }}"
+                               class="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
                                 動画をアップロード
                             </a>
                         </div>

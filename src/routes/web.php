@@ -6,6 +6,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PreviewController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicProfileController;
+use App\Http\Controllers\VideoController;
 use Illuminate\Support\Facades\Route;
 
 // トップページ
@@ -31,6 +32,9 @@ Route::middleware('auth')->group(function () {
 
     // プレビュー
     Route::get('/dashboard/preview', [PreviewController::class, 'show'])->name('preview');
+
+    // 動画管理
+    Route::get('/dashboard/videos', [VideoController::class, 'index'])->name('videos.index');
 });
 
 require __DIR__.'/auth.php';

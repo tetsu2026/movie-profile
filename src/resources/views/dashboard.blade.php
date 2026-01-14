@@ -92,10 +92,14 @@
             </div>
 
             {{-- アクションリンク --}}
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <a href="{{ route('dashboard.profile.edit') }}"
                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg text-center transition duration-200 shadow-md hover:shadow-lg">
                     プロフィール編集
+                </a>
+                <a href="{{ route('videos.index') }}"
+                   class="bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg text-center transition duration-200 shadow-md hover:shadow-lg">
+                    動画管理
                 </a>
                 <a href="{{ route('preview') }}"
                    class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-6 rounded-lg text-center transition duration-200 shadow-md hover:shadow-lg">
@@ -112,17 +116,6 @@
                         ユーザー管理（管理者専用）
                     </a>
                 @endif
-            </div>
-
-            {{-- 今後実装予定の機能（グレーアウト） --}}
-            <div class="bg-gray-100 border border-gray-300 rounded-lg p-6">
-                <h3 class="text-lg font-semibold mb-4 text-gray-700">今後実装予定の機能</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="bg-white p-4 rounded border border-gray-200 opacity-60">
-                        <p class="text-gray-600 font-semibold">動画管理</p>
-                        <p class="text-sm text-gray-500">Issue #12で実装予定</p>
-                    </div>
-                </div>
             </div>
         </div>
     </div>

@@ -8,6 +8,7 @@ use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
@@ -35,11 +36,24 @@ class RegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
+        // トランザクション処理でユーザーとプロフィールを同時作成
+        $user = DB::transaction(function () use ($request) {
+            // ユーザー作成
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'role' => 'user', // デフォルト権限
+            ]);
+
+            // プロフィールレコードを自動作成
+            $user->profile()->create([
+                'name' => $request->name,
+                'is_public' => true, // デフォルトで公開
+            ]);
+
+            return $user;
+        });
 
         event(new Registered($user));
 

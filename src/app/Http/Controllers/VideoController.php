@@ -6,6 +6,7 @@ use App\Models\Profile;
 use App\Models\Video;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class VideoController extends Controller
@@ -54,7 +55,16 @@ class VideoController extends Controller
                 ->with('error', 'この動画はプロフィールで使用中のため削除できません');
         }
 
-        // 動画を削除（S3からの削除は Issue #15 で実装予定）
+        // S3から動画ファイル削除
+        if ($video->encoded_path && Storage::disk('s3')->exists($video->encoded_path)) {
+            Storage::disk('s3')->delete($video->encoded_path);
+        }
+
+        if ($video->original_path && Storage::disk('s3')->exists($video->original_path)) {
+            Storage::disk('s3')->delete($video->original_path);
+        }
+
+        // データベースから削除
         $video->delete();
 
         return redirect()->route('videos.index')

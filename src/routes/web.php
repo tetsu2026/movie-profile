@@ -40,4 +40,9 @@ Route::middleware('auth')->group(function () {
     Route::delete('/dashboard/videos/{id}', [VideoController::class, 'destroy'])->name('videos.destroy');
 });
 
+// 管理者専用ページ（管理者のみ）
+Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    // Issue #20, #21 でユーザー管理ルートを追加予定
+});
+
 require __DIR__.'/auth.php';

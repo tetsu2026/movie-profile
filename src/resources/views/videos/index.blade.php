@@ -7,6 +7,19 @@
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            {{-- 成功・エラーメッセージ --}}
+            @if(session('success'))
+                <div class="mb-6 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+                    <span class="block sm:inline">{{ session('success') }}</span>
+                </div>
+            @endif
+
+            @if(session('error'))
+                <div class="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                    <span class="block sm:inline">{{ session('error') }}</span>
+                </div>
+            @endif
+
             {{-- ヘッダーアクション --}}
             <div class="mb-6 flex justify-between items-center">
                 <div>
@@ -72,11 +85,20 @@
                                             {{ $video->created_at->format('Y/m/d H:i') }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <button class="text-red-600 hover:text-red-900 opacity-50 cursor-not-allowed"
-                                                    disabled
-                                                    title="削除機能は Issue #13 で実装予定">
-                                                削除
-                                            </button>
+                                            @if(in_array($video->id, $usedVideoIds))
+                                                <span class="text-gray-400 cursor-not-allowed" title="プロフィールで使用中のため削除できません">
+                                                    削除
+                                                </span>
+                                            @else
+                                                <form method="POST" action="{{ route('videos.destroy', $video->id) }}" class="inline"
+                                                      onsubmit="return confirm('本当に削除しますか？この操作は取り消せません。');">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="text-red-600 hover:text-red-900">
+                                                        削除
+                                                    </button>
+                                                </form>
+                                            @endif
                                         </td>
                                     </tr>
                                 @endforeach

@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateUserRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
@@ -67,6 +68,9 @@ class UserController extends Controller
             'role' => $request->role,
         ]);
 
+        // プロフィールキャッシュをクリア
+        Cache::forget("user_profile_{$id}");
+
         return redirect()->route('admin.users.index')
             ->with('success', 'ユーザー情報を更新しました');
     }
@@ -87,6 +91,9 @@ class UserController extends Controller
                 Storage::disk('s3')->delete($video->original_path);
             }
         }
+
+        // プロフィールキャッシュをクリア
+        Cache::forget("user_profile_{$id}");
 
         // ソフトデリート（profiles/videosは外部キー制約でカスケード削除）
         $user->delete();

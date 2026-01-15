@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateProfileRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class ProfileController extends Controller
@@ -35,9 +36,13 @@ class ProfileController extends Controller
      */
     public function update(UpdateProfileRequest $request): RedirectResponse
     {
-        $profile = $request->user()->profile;
+        $user = $request->user();
+        $profile = $user->profile;
 
         $profile->update($request->validated());
+
+        // プロフィールキャッシュをクリア
+        Cache::forget("user_profile_{$user->id}");
 
         return redirect()->route('dashboard')
             ->with('success', 'プロフィールを更新しました');

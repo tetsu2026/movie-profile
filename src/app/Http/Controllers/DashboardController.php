@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -15,12 +16,18 @@ class DashboardController extends Controller
         $user = $request->user();
         $profile = $user->profile;
 
-        // 動画数のカウント（ステータス別）
+        // 動画数のカウント（ステータス別）- 1クエリで全て取得
+        $statusCounts = $user->videos()
+            ->select('status', DB::raw('count(*) as count'))
+            ->groupBy('status')
+            ->pluck('count', 'status')
+            ->toArray();
+
         $videoStats = [
-            'total' => $user->videos()->count(),
-            'completed' => $user->videos()->where('status', 'completed')->count(),
-            'encoding' => $user->videos()->where('status', 'encoding')->count(),
-            'failed' => $user->videos()->where('status', 'failed')->count(),
+            'total' => array_sum($statusCounts),
+            'completed' => $statusCounts['completed'] ?? 0,
+            'encoding' => $statusCounts['encoding'] ?? 0,
+            'failed' => $statusCounts['failed'] ?? 0,
         ];
 
         // プロフィール完成度

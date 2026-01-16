@@ -34,5 +34,8 @@ Thumbs.db
 *.sublime-project
 *.sublime-workspace
 
+# Claude Code
+.claude/
+
 # ログ
 *.log

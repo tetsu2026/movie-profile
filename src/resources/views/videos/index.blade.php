@@ -49,6 +49,9 @@
                                         作成日時
                                     </th>
                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        プロフィール設定
+                                    </th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         操作
                                     </th>
                                 </tr>
@@ -91,12 +94,31 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {{ $video->created_at->format('Y/m/d H:i') }}
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm">
                                             @if(in_array($video->id, $usedVideoIds))
-                                                <span class="text-gray-400 cursor-not-allowed" title="プロフィールで使用中のため削除できません">
-                                                    削除
+                                                <span class="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">
+                                                    設定中
                                                 </span>
                                             @else
+                                                <span class="text-xs text-gray-400 px-2 py-1">
+                                                    -
+                                                </span>
+                                            @endif
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            @if(in_array($video->id, $usedVideoIds))
+                                                {{-- 使用中の動画：警告付き確認 --}}
+                                                <form method="POST" action="{{ route('videos.destroy', $video->id) }}" class="inline"
+                                                      onsubmit="return confirm('この動画はプロフィールのサムネイル動画に設定されています。\n\n削除すると、サムネイル動画の設定も解除されます。\n\n本当に削除しますか？');">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <input type="hidden" name="force_delete" value="1">
+                                                    <button type="submit" class="text-red-600 hover:text-red-900">
+                                                        削除
+                                                    </button>
+                                                </form>
+                                            @else
+                                                {{-- 未使用の動画：通常の確認 --}}
                                                 <form method="POST" action="{{ route('videos.destroy', $video->id) }}" class="inline"
                                                       onsubmit="return confirm('本当に削除しますか？この操作は取り消せません。');">
                                                     @csrf
@@ -144,4 +166,5 @@
             </div>
         </div>
     </div>
+
 </x-app-layout>

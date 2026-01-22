@@ -103,6 +103,10 @@ class VideoController extends Controller
 
     /**
      * 動画を削除
+     *
+     * @param Request $request
+     * @param int $id 動画ID
+     * @return RedirectResponse
      */
     public function destroy(Request $request, int $id): RedirectResponse
     {
@@ -114,11 +118,17 @@ class VideoController extends Controller
         }
 
         // プロフィールで使用中かチェック
-        $isUsed = Profile::where('thumbnail_video_id', $video->id)->exists();
+        $profile = Profile::where('thumbnail_video_id', $video->id)->first();
 
-        if ($isUsed) {
-            return redirect()->route('videos.index')
-                ->with('error', 'この動画はプロフィールで使用中のため削除できません');
+        if ($profile) {
+            // 強制削除フラグがない場合はエラー
+            if (!$request->boolean('force_delete')) {
+                return redirect()->route('videos.index')
+                    ->with('error', 'この動画はプロフィールで使用中のため削除できません');
+            }
+
+            // プロフィールからの参照を解除
+            $profile->update(['thumbnail_video_id' => null]);
         }
 
         // S3から動画ファイル削除
@@ -133,7 +143,11 @@ class VideoController extends Controller
         // データベースから削除
         $video->delete();
 
+        $message = $profile
+            ? '動画を削除し、プロフィールのサムネイル設定を解除しました'
+            : '動画を削除しました';
+
         return redirect()->route('videos.index')
-            ->with('success', '動画を削除しました');
+            ->with('success', $message);
     }
 }

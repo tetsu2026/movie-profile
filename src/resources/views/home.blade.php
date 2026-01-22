@@ -16,15 +16,6 @@
 </head>
 <body class="font-sans text-gray-900 antialiased">
     <div class="min-h-screen flex flex-col bg-gray-100">
-        {{-- ヘッダー --}}
-        <header class="py-6">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-center">
-                <a href="/">
-                    <x-application-logo class="w-16 h-16 fill-current text-gray-500" />
-                </a>
-            </div>
-        </header>
-
         {{-- メインコンテンツ --}}
         <main class="flex-1 flex flex-col items-center justify-center px-4 py-12">
             <div class="max-w-4xl mx-auto text-center">

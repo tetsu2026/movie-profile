@@ -2,7 +2,8 @@
 @props([
     'video',
     'popupVideo' => null,
-    'size' => 'md'
+    'size' => 'md',
+    'inline' => false
 ])
 
 @php
@@ -11,9 +12,12 @@
         'md' => 'w-24 h-24 md:w-28 md:h-28 lg:w-32 lg:h-32',
         'lg' => 'w-40 h-40',
     ];
+
+    // inline モードの場合は通常フロー配置、そうでなければ fixed 配置
+    $positionClasses = $inline ? '' : 'fixed bottom-8 right-8 z-50';
 @endphp
 
-<div class="fixed bottom-8 right-8 z-50 {{ $sizeClasses[$size] }}">
+<div class="{{ $positionClasses }} {{ $sizeClasses[$size] }}">
     @if($popupVideo && $popupVideo->status === 'completed')
         {{-- クリック可能なサムネイル（ポップアップ動画あり） --}}
         <button

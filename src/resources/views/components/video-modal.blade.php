@@ -7,7 +7,7 @@
 <div
     x-data="{ open: false }"
     x-show="open"
-    x-on:open-video-modal.window="if ($event.detail.videoId === '{{ $id }}') { open = true; }"
+    x-on:open-video-modal.window="if ($event.detail.videoId === '{{ $id }}') { open = true; $nextTick(() => $refs.video.play()); }"
     x-on:keydown.escape.window="if (open) { open = false; $refs.video.pause(); }"
     x-transition:enter="transition ease-out duration-300"
     x-transition:enter-start="opacity-0"

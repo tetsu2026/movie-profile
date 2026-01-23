@@ -190,3 +190,77 @@ class PreviewController extends Controller
 - サイトマップ: `docs/04_sitemap.md`
 - ルーティング設計書: `docs/06_routing.md`
 - 画面設計書: `docs/07_screen_design.md`
+
+---
+
+## 更新履歴
+
+### 2026-01-23: レイアウト改善
+
+**変更内容:**
+1. ナビゲーションボタンの位置を「プレビュー表示中」バナーの**上**に移動
+2. サムネ動画を `fixed` 配置からボックス内右下配置に変更
+3. 自己紹介欄に `min-height` を追加し画面下まで表示
+4. ポップアップ動画をモーダル表示時に自動再生するよう変更
+
+**実装例の更新:**
+```blade
+<x-app-layout>
+    <x-slot name="header">
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+            プレビュー
+        </h2>
+    </x-slot>
+
+    <div class="py-12">
+        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
+            {{-- ナビゲーションボタン（プレビュー表示中の上に配置） --}}
+            <div class="flex flex-col sm:flex-row gap-3">
+                <a href="{{ route('dashboard.profile.edit') }}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg text-center">
+                    編集ページへ戻る
+                </a>
+                <a href="{{ route('dashboard') }}" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg text-center">
+                    ダッシュボードへ戻る
+                </a>
+                <a href="{{ route('users.show', ['id' => Auth::id()]) }}" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg text-center">
+                    公開ページを見る
+                </a>
+            </div>
+
+            {{-- 注意書き --}}
+            <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded" role="alert">
+                <p class="font-bold">プレビュー表示中</p>
+                <p class="mt-1">これは公開ページのプレビューです。他のユーザーには表示されません。</p>
+            </div>
+
+            {{-- プロフィールボックス --}}
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-8">
+                    <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">{{ $profile->name }}</h1>
+
+                    {{-- 経歴表示（min-heightで画面下まで表示） --}}
+                    <div class="min-h-[40vh] border-t border-gray-200 pt-4">
+                        @if($profile->biography)
+                            <p class="text-gray-700 whitespace-pre-wrap leading-relaxed">{{ $profile->biography }}</p>
+                        @else
+                            <p class="text-gray-500 italic">経歴が設定されていません</p>
+                        @endif
+                    </div>
+
+                    {{-- サムネイル動画エリア（右寄せ、ボックス内配置） --}}
+                    <div class="pt-6 mt-6">
+                        <div class="flex justify-end">
+                            <x-video-thumbnail :video="$profile->thumbnailVideo" :popup-video="$profile->popupVideo" :inline="true" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ポップアップ動画モーダル（自動再生） --}}
+    @if($profile->popupVideo && $profile->popupVideo->status === 'completed')
+        <x-video-modal :video="$profile->popupVideo" :id="$profile->popupVideo->id" />
+    @endif
+</x-app-layout>
+```

@@ -174,3 +174,59 @@ class PublicProfileController extends Controller
 - サイトマップ: `docs/04_sitemap.md`
 - ルーティング設計書: `docs/06_routing.md`
 - 画面設計書: `docs/07_screen_design.md`
+
+---
+
+## 更新履歴
+
+### 2026-01-23: レイアウト改善
+
+**変更内容:**
+1. サムネ動画を `fixed` 配置からボックス内右下配置に変更
+2. 自己紹介欄に `min-height` を追加し画面下まで表示
+3. 「管理ページへ」リンクをボックス欄外（下部右寄せ）に追加
+4. ポップアップ動画をモーダル表示時に自動再生するよう変更
+
+**実装例の更新:**
+```blade
+<x-guest-layout>
+    <div class="min-h-screen bg-gray-50 py-8 px-4">
+        <div class="max-w-4xl mx-auto">
+            {{-- プロフィールボックス --}}
+            <div class="bg-white rounded-lg shadow-md p-8">
+                <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                    {{ $profile->name ?? 'ユーザー名未設定' }}
+                </h1>
+
+                {{-- 経歴表示（min-heightで画面下まで表示） --}}
+                <div class="min-h-[40vh] border-t border-gray-200 pt-4">
+                    @if($profile->biography)
+                        <p class="text-gray-700 whitespace-pre-wrap leading-relaxed">{{ $profile->biography }}</p>
+                    @else
+                        <p class="text-gray-500 italic">経歴が設定されていません</p>
+                    @endif
+                </div>
+
+                {{-- サムネイル動画エリア（右寄せ、ボックス内配置） --}}
+                <div class="pt-6 mt-6">
+                    <div class="flex justify-end">
+                        <x-video-thumbnail :video="$profile->thumbnailVideo" :popup-video="$profile->popupVideo" :inline="true" />
+                    </div>
+                </div>
+            </div>
+
+            {{-- 管理ページへのリンク（ボックス欄外） --}}
+            <div class="mt-4 text-right">
+                <a href="{{ route('dashboard') }}" class="text-blue-600 hover:text-blue-800 font-medium">
+                    管理ページへ
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {{-- ポップアップ動画モーダル（自動再生） --}}
+    @if($profile->popupVideo && $profile->popupVideo->status === 'completed')
+        <x-video-modal :video="$profile->popupVideo" :id="$profile->popupVideo->id" />
+    @endif
+</x-guest-layout>
+```

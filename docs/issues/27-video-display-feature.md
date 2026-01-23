@@ -439,3 +439,45 @@ Alpine.start();
 - 画面設計書: `docs/design-docs/07_screen_design.md` - 公開プロフィールページ仕様
 - 状態遷移設計書: `docs/design-docs/08_state_machine_video.md` - 動画ステータス管理
 - Issue #10: `docs/issues/10-public-profile-detail.md` - 公開プロフィールページのプレースホルダー実装
+
+---
+
+## 更新履歴
+
+### 2026-01-23: レイアウト・再生仕様改善
+
+**変更内容:**
+1. サムネ動画を `fixed` 配置からボックス内右下配置に変更
+2. video-thumbnailコンポーネントに `inline` プロップを追加（true: ボックス内配置、false: fixed配置）
+3. ポップアップ動画を手動再生から**自動再生**に変更
+
+**コンポーネントの更新:**
+
+video-thumbnail.blade.php:
+```blade
+@props([
+    'video',
+    'popupVideo' => null,
+    'size' => 'md',
+    'inline' => false
+])
+
+@php
+    $sizeClasses = [...];
+    // inline モードの場合は通常フロー配置、そうでなければ fixed 配置
+    $positionClasses = $inline ? '' : 'fixed bottom-8 right-8 z-50';
+@endphp
+
+<div class="{{ $positionClasses }} {{ $sizeClasses[$size] }}">
+    ...
+</div>
+```
+
+video-modal.blade.php（自動再生対応）:
+```blade
+x-on:open-video-modal.window="if ($event.detail.videoId === '{{ $id }}') { open = true; $nextTick(() => $refs.video.play()); }"
+```
+
+**受け入れ基準の更新:**
+- ~~サムネイル動画が円形で画面右下に固定表示され~~ → サムネイル動画が円形でボックス内右下に表示され
+- ~~モーダル内の動画は自動再生されない（ユーザー操作を待つ）~~ → モーダル表示時に動画が自動再生される

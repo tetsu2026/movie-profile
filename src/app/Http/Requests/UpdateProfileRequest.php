@@ -22,6 +22,20 @@ class UpdateProfileRequest extends FormRequest
      */
     public function rules(): array
     {
+        $videoValidation = function ($attribute, $value, $fail) {
+            if ($value) {
+                $video = Video::find($value);
+                // 所有権チェック
+                if (!$video || $video->user_id !== $this->user()->id) {
+                    $fail('選択された動画が無効です');
+                }
+                // エンコード完了チェック
+                if ($video && $video->status !== 'completed') {
+                    $fail('エンコードが完了していない動画は選択できません');
+                }
+            }
+        };
+
         return [
             'name' => 'required|string|max:50',
             'biography' => 'nullable|string|max:1000',
@@ -29,19 +43,13 @@ class UpdateProfileRequest extends FormRequest
                 'nullable',
                 'integer',
                 'exists:videos,id',
-                function ($attribute, $value, $fail) {
-                    if ($value) {
-                        $video = Video::find($value);
-                        // 所有権チェック
-                        if (!$video || $video->user_id !== $this->user()->id) {
-                            $fail('選択された動画が無効です');
-                        }
-                        // エンコード完了チェック
-                        if ($video && $video->status !== 'completed') {
-                            $fail('エンコードが完了していない動画は選択できません');
-                        }
-                    }
-                },
+                $videoValidation,
+            ],
+            'popup_video_id' => [
+                'nullable',
+                'integer',
+                'exists:videos,id',
+                $videoValidation,
             ],
         ];
     }
@@ -56,6 +64,7 @@ class UpdateProfileRequest extends FormRequest
             'name.max' => '名前は50文字以内で入力してください',
             'biography.max' => '経歴は1000文字以内で入力してください',
             'thumbnail_video_id.exists' => '選択された動画が見つかりません',
+            'popup_video_id.exists' => '選択された動画が見つかりません',
         ];
     }
 }

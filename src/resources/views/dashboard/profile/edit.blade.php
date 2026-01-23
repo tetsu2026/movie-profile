@@ -78,7 +78,7 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                             <p class="mt-1 text-sm text-gray-500">
-                                プロフィールページに表示される動画です。エンコード完了済みの動画のみ選択できます。
+                                画面右下に円形で表示される動画です（自動再生・ループ・ミュート）。
                             </p>
 
                             @if($completedVideos->count() === 0)
@@ -89,6 +89,32 @@
                                     </p>
                                 </div>
                             @endif
+                        </div>
+
+                        {{-- ポップアップ動画選択 --}}
+                        <div class="mb-6">
+                            <label for="popup_video_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                ポップアップ動画
+                            </label>
+                            <select
+                                name="popup_video_id"
+                                id="popup_video_id"
+                                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 @error('popup_video_id') border-red-500 @enderror">
+                                <option value="">選択しない</option>
+                                @foreach($completedVideos as $video)
+                                    <option value="{{ $video->id }}"
+                                            @if(old('popup_video_id', $profile->popup_video_id) == $video->id) selected @endif>
+                                        {{ $video->original_filename }}
+                                        ({{ $video->created_at->format('Y/m/d H:i') }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('popup_video_id')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            <p class="mt-1 text-sm text-gray-500">
+                                サムネイル動画をクリックした時にモーダルで表示される動画です（音声あり）。
+                            </p>
                         </div>
 
                         {{-- ボタン --}}

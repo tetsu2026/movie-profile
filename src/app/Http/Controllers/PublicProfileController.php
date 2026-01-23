@@ -24,7 +24,7 @@ class PublicProfileController extends Controller
             now()->addMinutes(self::CACHE_TTL),
             function () use ($id) {
                 // プロフィールと動画情報をEager Loadingで取得（N+1問題対策）
-                return User::with(['profile', 'profile.thumbnailVideo'])->findOrFail($id);
+                return User::with(['profile', 'profile.thumbnailVideo', 'profile.popupVideo'])->findOrFail($id);
             }
         );
 

@@ -20,6 +20,7 @@ class Profile extends Model
         'name',
         'biography',
         'thumbnail_video_id',
+        'popup_video_id',
         'video_order',
         'is_public',
     ];
@@ -48,5 +49,13 @@ class Profile extends Model
     public function thumbnailVideo()
     {
         return $this->belongsTo(Video::class, 'thumbnail_video_id');
+    }
+
+    /**
+     * ポップアップ動画を取得
+     */
+    public function popupVideo()
+    {
+        return $this->belongsTo(Video::class, 'popup_video_id');
     }
 }

@@ -45,4 +45,18 @@ class Video extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    /**
+     * エンコード済み動画のURLを取得
+     *
+     * @return string|null
+     */
+    public function getEncodedUrlAttribute(): ?string
+    {
+        if (!$this->encoded_path) {
+            return null;
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk('s3')->url($this->encoded_path);
+    }
 }

@@ -1,6 +1,6 @@
-<x-guest-layout>
+<x-public-layout>
     <div class="min-h-screen bg-gray-50 py-8 px-4">
-        <div class="max-w-4xl mx-auto">
+        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             {{-- プロフィールボックス --}}
             <div class="bg-white rounded-lg shadow-md p-8">
                 {{-- 氏名 --}}
@@ -52,4 +52,4 @@
             :id="$profile->popupVideo->id"
         />
     @endif
-</x-guest-layout>
+</x-public-layout>

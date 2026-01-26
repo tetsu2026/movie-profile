@@ -95,10 +95,23 @@
                                             {{ $video->created_at->format('Y/m/d H:i') }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                            @if(in_array($video->id, $usedVideoIds))
-                                                <span class="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">
-                                                    設定中
-                                                </span>
+                                            @php
+                                                $isThumbnail = $video->id === $thumbnailVideoId;
+                                                $isPopup = $video->id === $popupVideoId;
+                                            @endphp
+                                            @if($isThumbnail || $isPopup)
+                                                <div class="flex flex-col gap-1">
+                                                    @if($isThumbnail)
+                                                        <span class="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">
+                                                            サムネイル動画設定中
+                                                        </span>
+                                                    @endif
+                                                    @if($isPopup)
+                                                        <span class="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">
+                                                            ポップアップ動画設定中
+                                                        </span>
+                                                    @endif
+                                                </div>
                                             @else
                                                 <span class="text-xs text-gray-400 px-2 py-1">
                                                     -
@@ -106,28 +119,30 @@
                                             @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            @if(in_array($video->id, $usedVideoIds))
-                                                {{-- 使用中の動画：警告付き確認 --}}
-                                                <form method="POST" action="{{ route('videos.destroy', $video->id) }}" class="inline"
-                                                      onsubmit="return confirm('この動画はプロフィールのサムネイル動画に設定されています。\n\n削除すると、サムネイル動画の設定も解除されます。\n\n本当に削除しますか？');">
-                                                    @csrf
-                                                    @method('DELETE')
+                                            @php
+                                                // 削除確認メッセージを生成
+                                                if ($isThumbnail && $isPopup) {
+                                                    $confirmMessage = 'この動画はプロフィールのサムネイル動画とポップアップ動画に設定されています。\n\n削除すると、両方の設定が解除されます。\n\n本当に削除しますか？';
+                                                } elseif ($isThumbnail) {
+                                                    $confirmMessage = 'この動画はプロフィールのサムネイル動画に設定されています。\n\n削除すると、サムネイル動画の設定も解除されます。\n\n本当に削除しますか？';
+                                                } elseif ($isPopup) {
+                                                    $confirmMessage = 'この動画はプロフィールのポップアップ動画に設定されています。\n\n削除すると、ポップアップ動画の設定も解除されます。\n\n本当に削除しますか？';
+                                                } else {
+                                                    $confirmMessage = '本当に削除しますか？この操作は取り消せません。';
+                                                }
+                                                $isUsed = $isThumbnail || $isPopup;
+                                            @endphp
+                                            <form method="POST" action="{{ route('videos.destroy', $video->id) }}" class="inline"
+                                                  onsubmit="return confirm('{{ $confirmMessage }}');">
+                                                @csrf
+                                                @method('DELETE')
+                                                @if($isUsed)
                                                     <input type="hidden" name="force_delete" value="1">
-                                                    <button type="submit" class="text-red-600 hover:text-red-900">
-                                                        削除
-                                                    </button>
-                                                </form>
-                                            @else
-                                                {{-- 未使用の動画：通常の確認 --}}
-                                                <form method="POST" action="{{ route('videos.destroy', $video->id) }}" class="inline"
-                                                      onsubmit="return confirm('本当に削除しますか？この操作は取り消せません。');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="text-red-600 hover:text-red-900">
-                                                        削除
-                                                    </button>
-                                                </form>
-                                            @endif
+                                                @endif
+                                                <button type="submit" class="text-red-600 hover:text-red-900">
+                                                    削除
+                                                </button>
+                                            </form>
                                         </td>
                                     </tr>
                                 @endforeach

@@ -88,16 +88,15 @@ class VideoController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        // プロフィールで使用中の動画ID
-        $usedVideoIds = [];
+        // プロフィールで使用中の動画IDを取得
         $profile = $request->user()->profile;
-        if ($profile && $profile->thumbnail_video_id) {
-            $usedVideoIds[] = $profile->thumbnail_video_id;
-        }
+        $thumbnailVideoId = $profile?->thumbnail_video_id;
+        $popupVideoId = $profile?->popup_video_id;
 
         return view('videos.index', [
             'videos' => $videos,
-            'usedVideoIds' => $usedVideoIds,
+            'thumbnailVideoId' => $thumbnailVideoId,
+            'popupVideoId' => $popupVideoId,
         ]);
     }
 
@@ -117,10 +116,13 @@ class VideoController extends Controller
             abort(403, '他のユーザーの動画は削除できません');
         }
 
-        // プロフィールで使用中かチェック
-        $profile = Profile::where('thumbnail_video_id', $video->id)->first();
+        // プロフィールで使用中かチェック（サムネイルとポップアップ両方）
+        $profile = $request->user()->profile;
+        $isThumbnail = $profile && $profile->thumbnail_video_id === $video->id;
+        $isPopup = $profile && $profile->popup_video_id === $video->id;
+        $isUsed = $isThumbnail || $isPopup;
 
-        if ($profile) {
+        if ($isUsed) {
             // 強制削除フラグがない場合はエラー
             if (!$request->boolean('force_delete')) {
                 return redirect()->route('videos.index')
@@ -128,7 +130,14 @@ class VideoController extends Controller
             }
 
             // プロフィールからの参照を解除
-            $profile->update(['thumbnail_video_id' => null]);
+            $updateData = [];
+            if ($isThumbnail) {
+                $updateData['thumbnail_video_id'] = null;
+            }
+            if ($isPopup) {
+                $updateData['popup_video_id'] = null;
+            }
+            $profile->update($updateData);
         }
 
         // S3から動画ファイル削除
@@ -143,9 +152,16 @@ class VideoController extends Controller
         // データベースから削除
         $video->delete();
 
-        $message = $profile
-            ? '動画を削除し、プロフィールのサムネイル設定を解除しました'
-            : '動画を削除しました';
+        // 削除メッセージを生成
+        if ($isThumbnail && $isPopup) {
+            $message = '動画を削除し、プロフィールのサムネイル動画とポップアップ動画の設定を解除しました';
+        } elseif ($isThumbnail) {
+            $message = '動画を削除し、プロフィールのサムネイル動画の設定を解除しました';
+        } elseif ($isPopup) {
+            $message = '動画を削除し、プロフィールのポップアップ動画の設定を解除しました';
+        } else {
+            $message = '動画を削除しました';
+        }
 
         return redirect()->route('videos.index')
             ->with('success', $message);

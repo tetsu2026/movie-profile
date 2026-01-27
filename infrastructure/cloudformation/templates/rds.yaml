@@ -1,0 +1,131 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: RDS MySQL Instance for Movie Profile Platform
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    Description: Environment name
+
+  PrivateSubnet1Id:
+    Type: String
+    Description: Private Subnet 1 ID
+
+  PrivateSubnet2Id:
+    Type: String
+    Description: Private Subnet 2 ID
+
+  RDSSecurityGroupId:
+    Type: String
+    Description: RDS Security Group ID
+
+  DBMasterUsername:
+    Type: String
+    Default: admin
+    Description: Master username for RDS
+    MinLength: 1
+    MaxLength: 16
+    AllowedPattern: ^[a-zA-Z][a-zA-Z0-9]*$
+    ConstraintDescription: Must begin with a letter and contain only alphanumeric characters
+
+  DBMasterPassword:
+    Type: String
+    NoEcho: true
+    Description: Master password for RDS (min 8 characters)
+    MinLength: 8
+    MaxLength: 41
+    AllowedPattern: ^[a-zA-Z0-9!@#$%^&*()_+-=]*$
+    ConstraintDescription: Must contain only alphanumeric and special characters
+
+  DBInstanceClass:
+    Type: String
+    Default: db.t3.micro
+    AllowedValues:
+      - db.t3.micro
+      - db.t3.small
+      - db.t3.medium
+    Description: RDS instance class
+
+  DBAllocatedStorage:
+    Type: Number
+    Default: 20
+    MinValue: 20
+    MaxValue: 100
+    Description: Allocated storage in GB
+
+Resources:
+  # DB Subnet Group
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: !Sub ${Environment}-movie-prf-db-subnet-group
+      DBSubnetGroupDescription: Subnet group for Movie Profile RDS
+      SubnetIds:
+        - !Ref PrivateSubnet1Id
+        - !Ref PrivateSubnet2Id
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-movie-prf-db-subnet-group
+        - Key: Environment
+          Value: !Ref Environment
+
+  # RDS Instance
+  RDSInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: !Sub ${Environment}-movie-prf-db
+      DBInstanceClass: !Ref DBInstanceClass
+      Engine: mysql
+      EngineVersion: '8.0'
+      MasterUsername: !Ref DBMasterUsername
+      MasterUserPassword: !Ref DBMasterPassword
+      DBName: movie_prf
+      AllocatedStorage: !Ref DBAllocatedStorage
+      StorageType: gp2
+      StorageEncrypted: true
+      # ネットワーク設定
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups:
+        - !Ref RDSSecurityGroupId
+      PubliclyAccessible: false
+      # バックアップ設定（無料枠対応: 1日に短縮）
+      BackupRetentionPeriod: 1
+      PreferredBackupWindow: 18:00-19:00
+      PreferredMaintenanceWindow: sun:19:00-sun:20:00
+      # その他設定
+      MultiAZ: false
+      AutoMinorVersionUpgrade: true
+      DeletionProtection: false
+      CopyTagsToSnapshot: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-movie-prf-db
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  RDSEndpoint:
+    Description: RDS Endpoint Address
+    Value: !GetAtt RDSInstance.Endpoint.Address
+    Export:
+      Name: !Sub ${Environment}-RDSEndpoint
+
+  RDSPort:
+    Description: RDS Port
+    Value: !GetAtt RDSInstance.Endpoint.Port
+    Export:
+      Name: !Sub ${Environment}-RDSPort
+
+  RDSInstanceId:
+    Description: RDS Instance Identifier
+    Value: !Ref RDSInstance
+    Export:
+      Name: !Sub ${Environment}-RDSInstanceId
+
+  DBName:
+    Description: Database Name
+    Value: movie_prf
+    Export:
+      Name: !Sub ${Environment}-DBName

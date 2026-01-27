@@ -1,0 +1,243 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EC2 Instance and Elastic IP for Movie Profile Platform
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    Description: Environment name
+
+  PublicSubnetId:
+    Type: String
+    Description: Public Subnet ID
+
+  EC2SecurityGroupId:
+    Type: String
+    Description: EC2 Security Group ID
+
+  EC2InstanceProfileName:
+    Type: String
+    Description: EC2 Instance Profile Name
+
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2 Key Pair name for SSH access
+
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues:
+      - t3.micro
+      - t3.small
+      - t3.medium
+    Description: EC2 instance type
+
+  VolumeSize:
+    Type: Number
+    Default: 20
+    MinValue: 20
+    MaxValue: 100
+    Description: EBS volume size in GB
+
+Resources:
+  # Elastic IP
+  ElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-movie-prf-eip
+        - Key: Environment
+          Value: !Ref Environment
+
+  # EC2 Instance
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Sub '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}'
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPairName
+      SubnetId: !Ref PublicSubnetId
+      SecurityGroupIds:
+        - !Ref EC2SecurityGroupId
+      IamInstanceProfile: !Ref EC2InstanceProfileName
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: !Ref VolumeSize
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      # UserData: 初期設定スクリプト
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+
+          # ログ出力設定
+          exec > >(tee /var/log/user-data.log) 2>&1
+          echo "=== Starting UserData script ==="
+
+          # システム更新
+          echo "=== Updating system packages ==="
+          dnf update -y
+
+          # 必要なパッケージをインストール
+          echo "=== Installing required packages ==="
+          dnf install -y \
+            nginx \
+            git \
+            unzip \
+            tar \
+            gzip
+
+          # PHP 8.2 インストール
+          echo "=== Installing PHP 8.2 ==="
+          dnf install -y \
+            php8.2 \
+            php8.2-fpm \
+            php8.2-cli \
+            php8.2-mysqlnd \
+            php8.2-pdo \
+            php8.2-mbstring \
+            php8.2-xml \
+            php8.2-curl \
+            php8.2-zip \
+            php8.2-gd \
+            php8.2-bcmath \
+            php8.2-intl \
+            php8.2-opcache
+
+          # FFmpegインストール
+          echo "=== Installing FFmpeg ==="
+          dnf install -y ffmpeg
+
+          # Composerインストール
+          echo "=== Installing Composer ==="
+          curl -sS https://getcomposer.org/installer | php
+          mv composer.phar /usr/local/bin/composer
+          chmod +x /usr/local/bin/composer
+
+          # Node.js 20インストール
+          echo "=== Installing Node.js 20 ==="
+          dnf install -y nodejs20 npm
+
+          # PHP-FPM設定
+          echo "=== Configuring PHP-FPM ==="
+          cat > /etc/php-fpm.d/www.conf << 'PHPFPM'
+          [www]
+          user = nginx
+          group = nginx
+          listen = /run/php-fpm/www.sock
+          listen.owner = nginx
+          listen.group = nginx
+          listen.mode = 0660
+          pm = dynamic
+          pm.max_children = 10
+          pm.start_servers = 2
+          pm.min_spare_servers = 1
+          pm.max_spare_servers = 5
+          pm.max_requests = 500
+          PHPFPM
+
+          # PHP設定（アップロードサイズ）
+          echo "=== Configuring PHP ==="
+          cat > /etc/php.d/99-custom.ini << 'PHPINI'
+          upload_max_filesize = 100M
+          post_max_size = 100M
+          max_execution_time = 300
+          memory_limit = 256M
+          PHPINI
+
+          # Nginx設定
+          echo "=== Configuring Nginx ==="
+          cat > /etc/nginx/conf.d/movie-prf.conf << 'NGINX'
+          server {
+              listen 80;
+              server_name _;
+              root /var/www/movie-prf/public;
+              index index.php index.html;
+
+              client_max_body_size 100M;
+
+              location / {
+                  try_files $uri $uri/ /index.php?$query_string;
+              }
+
+              location ~ \.php$ {
+                  fastcgi_pass unix:/run/php-fpm/www.sock;
+                  fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+                  include fastcgi_params;
+                  fastcgi_read_timeout 300;
+              }
+
+              location ~ /\.(?!well-known).* {
+                  deny all;
+              }
+
+              # 静的ファイルキャッシュ
+              location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
+                  expires 1y;
+                  add_header Cache-Control "public, immutable";
+              }
+          }
+          NGINX
+
+          # デフォルトサーバー設定を無効化
+          mv /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf.disabled 2>/dev/null || true
+
+          # アプリケーションディレクトリ作成
+          echo "=== Creating application directory ==="
+          mkdir -p /var/www/movie-prf
+          chown -R nginx:nginx /var/www/movie-prf
+
+          # サービス起動
+          echo "=== Starting services ==="
+          systemctl enable nginx php-fpm
+          systemctl start nginx php-fpm
+
+          # CloudWatch Agent インストール（オプション）
+          echo "=== Installing CloudWatch Agent ==="
+          dnf install -y amazon-cloudwatch-agent
+
+          echo "=== UserData script completed ==="
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-movie-prf-ec2
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Elastic IP Association
+  EIPAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      InstanceId: !Ref EC2Instance
+      EIP: !Ref ElasticIP
+
+Outputs:
+  EC2InstanceId:
+    Description: EC2 Instance ID
+    Value: !Ref EC2Instance
+    Export:
+      Name: !Sub ${Environment}-EC2InstanceId
+
+  EC2PublicIP:
+    Description: EC2 Elastic IP Address
+    Value: !Ref ElasticIP
+    Export:
+      Name: !Sub ${Environment}-EC2PublicIP
+
+  EC2PrivateIP:
+    Description: EC2 Private IP Address
+    Value: !GetAtt EC2Instance.PrivateIp
+    Export:
+      Name: !Sub ${Environment}-EC2PrivateIP
+
+  SSHCommand:
+    Description: SSH command to connect to EC2
+    Value: !Sub ssh -i ${KeyPairName}.pem ec2-user@${ElasticIP}
+
+  WebURL:
+    Description: Web URL (HTTP)
+    Value: !Sub http://${ElasticIP}

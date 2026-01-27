@@ -1,0 +1,30 @@
+[
+  {
+    "ParameterKey": "Environment",
+    "ParameterValue": "production"
+  },
+  {
+    "ParameterKey": "AdminIP",
+    "ParameterValue": "${ADMIN_IP}"
+  },
+  {
+    "ParameterKey": "KeyPairName",
+    "ParameterValue": "${KEY_PAIR_NAME}"
+  },
+  {
+    "ParameterKey": "DBMasterUsername",
+    "ParameterValue": "${DB_USERNAME}"
+  },
+  {
+    "ParameterKey": "DBMasterPassword",
+    "ParameterValue": "${DB_PASSWORD}"
+  },
+  {
+    "ParameterKey": "TemplatesBucketName",
+    "ParameterValue": "${TEMPLATES_BUCKET}"
+  },
+  {
+    "ParameterKey": "BucketNameSuffix",
+    "ParameterValue": "${BUCKET_SUFFIX}"
+  }
+]

@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: S3 Bucket for Movie Profile Platform video storage
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    Description: Environment name
+
+  BucketNameSuffix:
+    Type: String
+    Description: Unique suffix for bucket name (e.g., account ID or random string)
+
+Resources:
+  # Videos S3 Bucket
+  VideosBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub ${Environment}-movie-prf-videos-${BucketNameSuffix}
+      # サーバーサイド暗号化
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      # パブリックアクセスブロック設定（BucketPolicyで特定パスのみ許可）
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: false
+        RestrictPublicBuckets: false
+      # CORS設定（動画再生用）
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - HEAD
+            AllowedOrigins:
+              - '*'
+            MaxAge: 3600
+      # ライフサイクルルール
+      LifecycleConfiguration:
+        Rules:
+          # エンコード済み動画を30日後にINTELLIGENT_TIERINGに移行
+          - Id: MoveToIntelligentTiering
+            Status: Enabled
+            Prefix: users/
+            Transitions:
+              - StorageClass: INTELLIGENT_TIERING
+                TransitionInDays: 30
+          # 一時ファイルを7日後に削除
+          - Id: DeleteTempFiles
+            Status: Enabled
+            Prefix: temp/
+            ExpirationInDays: 7
+      # バージョニング（誤削除防止）
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-movie-prf-videos
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Bucket Policy: encoded/配下のみパブリック読み取り許可
+  VideosBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref VideosBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # エンコード済み動画のみパブリック読み取り許可
+          - Sid: PublicReadEncodedVideos
+            Effect: Allow
+            Principal: '*'
+            Action:
+              - s3:GetObject
+            Resource:
+              - !Sub arn:aws:s3:::${VideosBucket}/users/*/encoded/*
+          # CloudFront OAI用（将来の拡張用、コメントアウト）
+          # - Sid: CloudFrontOAIAccess
+          #   Effect: Allow
+          #   Principal:
+          #     CanonicalUser: !GetAtt CloudFrontOAI.S3CanonicalUserId
+          #   Action:
+          #     - s3:GetObject
+          #   Resource:
+          #     - !Sub arn:aws:s3:::${VideosBucket}/*
+
+Outputs:
+  BucketName:
+    Description: S3 Bucket Name
+    Value: !Ref VideosBucket
+    Export:
+      Name: !Sub ${Environment}-VideosBucketName
+
+  BucketArn:
+    Description: S3 Bucket ARN
+    Value: !GetAtt VideosBucket.Arn
+    Export:
+      Name: !Sub ${Environment}-VideosBucketArn
+
+  BucketDomainName:
+    Description: S3 Bucket Domain Name
+    Value: !GetAtt VideosBucket.DomainName
+    Export:
+      Name: !Sub ${Environment}-VideosBucketDomainName
+
+  BucketRegionalDomainName:
+    Description: S3 Bucket Regional Domain Name
+    Value: !GetAtt VideosBucket.RegionalDomainName
+    Export:
+      Name: !Sub ${Environment}-VideosBucketRegionalDomainName

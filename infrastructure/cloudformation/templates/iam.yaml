@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: IAM Roles and Instance Profiles for Movie Profile Platform
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    Description: Environment name
+
+  VideosBucketName:
+    Type: String
+    Description: S3 bucket name for videos
+
+Resources:
+  # EC2 IAM Role
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${Environment}-movie-prf-ec2-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        # CloudWatch Agentのログ送信用
+        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
+      Policies:
+        # S3アクセスポリシー（動画バケットのみ）
+        - PolicyName: !Sub ${Environment}-movie-prf-s3-access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub arn:aws:s3:::${VideosBucketName}/*
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  - !Sub arn:aws:s3:::${VideosBucketName}
+        # Systems Manager Session Manager用（オプション）
+        - PolicyName: !Sub ${Environment}-movie-prf-ssm-access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:UpdateInstanceInformation
+                  - ssmmessages:CreateControlChannel
+                  - ssmmessages:CreateDataChannel
+                  - ssmmessages:OpenControlChannel
+                  - ssmmessages:OpenDataChannel
+                Resource: '*'
+      Tags:
+        - Key: Name
+          Value: !Sub ${Environment}-movie-prf-ec2-role
+        - Key: Environment
+          Value: !Ref Environment
+
+  # EC2 Instance Profile
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub ${Environment}-movie-prf-ec2-profile
+      Roles:
+        - !Ref EC2Role
+
+Outputs:
+  EC2RoleArn:
+    Description: EC2 Role ARN
+    Value: !GetAtt EC2Role.Arn
+    Export:
+      Name: !Sub ${Environment}-EC2RoleArn
+
+  EC2InstanceProfileArn:
+    Description: EC2 Instance Profile ARN
+    Value: !GetAtt EC2InstanceProfile.Arn
+    Export:
+      Name: !Sub ${Environment}-EC2InstanceProfileArn
+
+  EC2InstanceProfileName:
+    Description: EC2 Instance Profile Name
+    Value: !Ref EC2InstanceProfile
+    Export:
+      Name: !Sub ${Environment}-EC2InstanceProfileName

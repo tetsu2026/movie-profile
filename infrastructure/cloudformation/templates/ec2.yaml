@@ -92,26 +92,34 @@ Resources:
             tar \
             gzip
 
-          # PHP 8.2 インストール
+          # PHP 8.2 インストール（Amazon Linux 2023の正しいパッケージ名）
           echo "=== Installing PHP 8.2 ==="
           dnf install -y \
-            php8.2 \
-            php8.2-fpm \
-            php8.2-cli \
-            php8.2-mysqlnd \
-            php8.2-pdo \
-            php8.2-mbstring \
-            php8.2-xml \
-            php8.2-curl \
-            php8.2-zip \
-            php8.2-gd \
-            php8.2-bcmath \
-            php8.2-intl \
-            php8.2-opcache
+            php \
+            php-fpm \
+            php-cli \
+            php-mysqlnd \
+            php-pdo \
+            php-mbstring \
+            php-xml \
+            php-curl \
+            php-zip \
+            php-gd \
+            php-bcmath \
+            php-intl \
+            php-opcache
 
-          # FFmpegインストール
-          echo "=== Installing FFmpeg ==="
-          dnf install -y ffmpeg
+          # FFmpegインストール（静的バイナリをダウンロード）
+          # Amazon Linux 2023の標準リポジトリにFFmpegは含まれていないため
+          echo "=== Installing FFmpeg (static binary) ==="
+          cd /tmp
+          wget -q https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+          tar xf ffmpeg-release-amd64-static.tar.xz
+          mv ffmpeg-*-static/ffmpeg /usr/local/bin/
+          mv ffmpeg-*-static/ffprobe /usr/local/bin/
+          chmod +x /usr/local/bin/ffmpeg /usr/local/bin/ffprobe
+          rm -rf ffmpeg-*-static* ffmpeg-release-amd64-static.tar.xz
+          cd -
 
           # Composerインストール
           echo "=== Installing Composer ==="

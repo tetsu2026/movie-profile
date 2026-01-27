@@ -181,10 +181,18 @@ aws cloudformation describe-stacks \
 
 ### 3.1 EC2にSSH接続
 
+SSH Agent Forwardingを使用して接続します。これにより、ローカルのSSH鍵を使ってEC2からGitHubにアクセスできます。
+
 ```bash
-# 出力されたSSHコマンドを使用
-ssh -i movie-prf-key.pem ec2-user@<Elastic IP>
+# ローカルでSSH Agentに鍵を登録（初回のみ）
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_rsa
+
+# Agent Forwarding付きでEC2に接続（-Aオプション）
+ssh -A -i movie-prf-key.pem ec2-user@<Elastic IP>
 ```
+
+> **Note**: `-A`オプションにより、EC2上で`git clone`や`git pull`がローカルの認証情報を使って実行できます。
 
 ### 3.2 初回セットアップ
 
@@ -195,8 +203,8 @@ EC2インスタンス上で実行：
 curl -O https://raw.githubusercontent.com/YOUR_REPO/infrastructure/scripts/app-deploy.sh
 chmod +x app-deploy.sh
 
-# 初回セットアップ実行
-./app-deploy.sh --setup --repo https://github.com/YOUR_USERNAME/movie-prf.git
+# 初回セットアップ実行（SSH形式のURL）
+./app-deploy.sh --setup --repo git@github.com:YOUR_USERNAME/movie-prf.git
 ```
 
 ### 3.3 .envファイルの設定

@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 # 設定
 APP_DIR="/var/www/movie-prf"
 APP_USER="nginx"
-REPO_URL="https://github.com/YOUR_USERNAME/movie-prf.git"
+REPO_URL="git@github.com:YOUR_USERNAME/movie-prf.git"
 BRANCH="main"
 
 # ログ出力関数
@@ -49,7 +49,7 @@ show_help() {
     echo "  --update            既存アプリの更新のみ"
     echo ""
     echo "例:"
-    echo "  $0 --setup --repo https://github.com/user/repo.git"
+    echo "  $0 --setup --repo git@github.com:user/repo.git"
     echo "  $0 --update"
 }
 
@@ -67,6 +67,9 @@ initial_setup() {
     sudo chown "$USER":"$USER" "$APP_DIR"
 
     log_step "2/9: Gitリポジトリのクローン"
+    # GitHubホストキーを登録（SSH接続時のHost key verification failedを防ぐ）
+    mkdir -p ~/.ssh
+    ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
     git clone --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
     cd "$APP_DIR"
 

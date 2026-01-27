@@ -72,8 +72,10 @@ class VideoEncoderService
             file_put_contents($tmpInputPath, $contents);
 
             // FFmpegコマンド実行
+            // FFmpegの絶対パスを使用（環境によってPATHが異なるため）
+            $ffmpegPath = env('FFMPEG_PATH', '/usr/local/bin/ffmpeg');
             $command = [
-                'ffmpeg',
+                $ffmpegPath,
                 '-i', $tmpInputPath,
                 '-c:v', 'libx264',
                 '-c:a', 'aac',

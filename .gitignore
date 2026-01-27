@@ -39,3 +39,7 @@ Thumbs.db
 
 # ログ
 *.log
+
+# Infrastructure - 機密情報を含むファイル
+infrastructure/scripts/.env.deploy
+infrastructure/cloudformation/parameters/*.local.json

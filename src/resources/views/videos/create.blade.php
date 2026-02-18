@@ -1,78 +1,99 @@
 <x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            動画アップロード
-        </h2>
-    </x-slot>
+    <div class="max-w-xl mx-auto px-6 py-8">
 
-    <div class="py-12">
-        <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
-            {{-- エラーメッセージ --}}
-            @if(session('error'))
-                <div class="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                    <span class="block sm:inline">{{ session('error') }}</span>
-                </div>
-            @endif
-
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900">
-                    {{-- アップロード制限 --}}
-                    <div class="bg-blue-50 border-l-4 border-blue-500 text-blue-700 p-4 mb-6">
-                        <p class="font-bold mb-2">アップロード制限</p>
-                        <ul class="list-disc list-inside space-y-1">
-                            <li>ファイルサイズ: 100MB以内</li>
-                            <li>動画の長さ: 1分以内</li>
-                            <li>対応形式: mp4, mov, avi, wmv</li>
-                        </ul>
-                    </div>
-
-                    <form method="POST" action="{{ route('videos.store') }}" enctype="multipart/form-data">
-                        @csrf
-
-                        <div class="mb-6">
-                            <label for="video" class="block text-sm font-medium text-gray-700 mb-2">
-                                動画ファイル <span class="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="file"
-                                name="video"
-                                id="video"
-                                accept="video/mp4,video/quicktime,video/x-msvideo,video/x-ms-wmv"
-                                required
-                                class="block w-full text-sm text-gray-500
-                                    file:mr-4 file:py-2 file:px-4
-                                    file:rounded file:border-0
-                                    file:text-sm file:font-semibold
-                                    file:bg-blue-50 file:text-blue-700
-                                    hover:file:bg-blue-100
-                                    cursor-pointer"
-                            >
-                            @error('video')
-                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                            <p class="mt-1 text-sm text-gray-500">mp4, mov, avi, wmv形式の動画ファイルを選択してください</p>
-                        </div>
-
-                        <div class="flex justify-end gap-4 pt-4 border-t border-gray-200">
-                            <a href="{{ route('videos.index') }}"
-                               class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-6 rounded transition duration-200">
-                                キャンセル
-                            </a>
-                            <button type="submit"
-                                    class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded transition duration-200">
-                                アップロード
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            {{-- 注意事項 --}}
-            <div class="mt-6 bg-yellow-50 border border-yellow-200 rounded p-4">
-                <p class="text-sm text-yellow-800">
-                    <strong>注意:</strong> アップロードした動画は自動的にエンコードされます。エンコード完了まで数分かかる場合があります。
-                </p>
-            </div>
+        {{-- ページタイトル --}}
+        <div class="mb-6">
+            <a href="{{ route('videos.index') }}"
+               class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors duration-150 mb-4 cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+                </svg>
+                動画管理に戻る
+            </a>
+            <h1 class="text-2xl font-bold" style="font-family: 'Plus Jakarta Sans', sans-serif; color: #1D1D1F;">動画をアップロード</h1>
         </div>
+
+        {{-- エラーメッセージ --}}
+        @if(session('error'))
+            <div class="mb-5 rounded-2xl px-5 py-4 text-sm font-medium flex items-center gap-3"
+                 style="background-color: #FFF1F2; color: #991B1B; border: 1px solid #FECDD3;">
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
+                </svg>
+                {{ session('error') }}
+            </div>
+        @endif
+
+        {{-- アップロードフォーム --}}
+        <div class="rounded-2xl bg-white border border-gray-100 p-6 md:p-8">
+
+            {{-- 制限事項 --}}
+            <div class="rounded-xl p-4 mb-6" style="background-color: #EFF6FF;">
+                <p class="text-xs font-semibold tracking-widest uppercase mb-2" style="color: #2563EB;">アップロード制限</p>
+                <ul class="space-y-1">
+                    <li class="flex items-center gap-2 text-sm" style="color: #1D4ED8;">
+                        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+                        </svg>
+                        ファイルサイズ: 100MB以内
+                    </li>
+                    <li class="flex items-center gap-2 text-sm" style="color: #1D4ED8;">
+                        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+                        </svg>
+                        動画の長さ: 1分以内
+                    </li>
+                    <li class="flex items-center gap-2 text-sm" style="color: #1D4ED8;">
+                        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+                        </svg>
+                        対応形式: MP4, MOV, AVI, WMV
+                    </li>
+                </ul>
+            </div>
+
+            <form method="POST" action="{{ route('videos.store') }}" enctype="multipart/form-data" class="space-y-6">
+                @csrf
+
+                <div>
+                    <x-input-label for="video" value="動画ファイル" />
+                    <div class="mt-2">
+                        <input
+                            type="file"
+                            name="video"
+                            id="video"
+                            accept="video/mp4,video/quicktime,video/x-msvideo,video/x-ms-wmv"
+                            required
+                            class="w-full text-sm text-gray-500 cursor-pointer
+                                   file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0
+                                   file:text-sm file:font-semibold file:cursor-pointer
+                                   file:transition-colors file:duration-150"
+                            style="file:background-color: #F5F5F7; file:color: #1D1D1F;"
+                        >
+                    </div>
+                    @error('video')
+                        <p class="mt-1.5 text-xs" style="color: #DC2626;">{{ $message }}</p>
+                    @enderror
+                    <p class="mt-1.5 text-xs text-gray-400">MP4, MOV, AVI, WMV 形式に対応</p>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
+                    <a href="{{ route('videos.index') }}"
+                       class="inline-flex items-center justify-center px-6 py-2.5 rounded-full text-sm font-medium border border-gray-200 bg-white hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                       style="color: #1D1D1F;">
+                        キャンセル
+                    </a>
+                    <x-primary-button>
+                        アップロード
+                    </x-primary-button>
+                </div>
+            </form>
+        </div>
+
+        {{-- 注意事項 --}}
+        <div class="mt-4 rounded-xl px-4 py-3 text-sm" style="background-color: #FFFBEB; color: #92400E;">
+            アップロード後、自動でエンコード処理が行われます。完了まで数分かかる場合があります。
+        </div>
+
     </div>
 </x-app-layout>

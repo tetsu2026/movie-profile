@@ -53,6 +53,61 @@
                     @enderror
                 </div>
 
+                {{-- テーマカラー --}}
+                <div>
+                    <x-input-label for="theme_color" value="テーマカラー" />
+                    <span class="text-xs text-gray-400 mb-3 block">公開ページのカード枠とサムネイル枠に反映されます</span>
+
+                    @php
+                        $presets = [
+                            ['color' => '#667eea', 'label' => 'インディゴ'],
+                            ['color' => '#f5576c', 'label' => 'ローズ'],
+                            ['color' => '#4facfe', 'label' => 'スカイ'],
+                            ['color' => '#2563EB', 'label' => 'ブルー'],
+                            ['color' => '#059669', 'label' => 'エメラルド'],
+                            ['color' => '#a855f7', 'label' => 'パープル'],
+                            ['color' => '#f97316', 'label' => 'オレンジ'],
+                            ['color' => '#1D1D1F', 'label' => 'ブラック'],
+                        ];
+                        $currentColor = old('theme_color', $profile->theme_color ?? '#667eea');
+                    @endphp
+
+                    <input type="hidden" name="theme_color" id="theme_color" value="{{ $currentColor }}">
+
+                    {{-- プリセット一覧 --}}
+                    <div class="flex flex-wrap gap-3" role="radiogroup" aria-label="テーマカラー選択">
+                        @foreach($presets as $preset)
+                            <button
+                                type="button"
+                                role="radio"
+                                aria-checked="{{ $currentColor === $preset['color'] ? 'true' : 'false' }}"
+                                aria-label="{{ $preset['label'] }}"
+                                data-color="{{ $preset['color'] }}"
+                                data-label="{{ $preset['label'] }}"
+                                class="color-preset w-9 h-9 rounded-full cursor-pointer transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 {{ $currentColor === $preset['color'] ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : '' }}"
+                                style="background-color: {{ $preset['color'] }};"
+                                title="{{ $preset['label'] }}"
+                            ></button>
+                        @endforeach
+                    </div>
+
+                    {{-- 選択中カラーのプレビュー --}}
+                    <div class="mt-3 flex items-center gap-2">
+                        <div id="color-preview"
+                             class="w-5 h-5 rounded-full border border-gray-200 transition-colors duration-200"
+                             style="background-color: {{ $currentColor }};"></div>
+                        <span id="color-label" class="text-xs text-gray-500">
+                            @foreach($presets as $preset)
+                                @if($currentColor === $preset['color']){{ $preset['label'] }}@endif
+                            @endforeach
+                        </span>
+                    </div>
+
+                    @error('theme_color')
+                        <p class="mt-1.5 text-xs" style="color: #DC2626;">{{ $message }}</p>
+                    @enderror
+                </div>
+
                 {{-- サムネイル動画 --}}
                 <div>
                     <x-input-label for="thumbnail_video_id" value="サムネイル動画" />
@@ -123,6 +178,29 @@
         // 文字数カウント
         document.getElementById('biography').addEventListener('input', function() {
             document.getElementById('biography-count').textContent = 1000 - this.value.length;
+        });
+
+        // カラープリセット選択
+        document.querySelectorAll('.color-preset').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const color = this.dataset.color;
+                const label = this.dataset.label;
+
+                // hidden inputを更新
+                document.getElementById('theme_color').value = color;
+
+                // プレビュー更新
+                document.getElementById('color-preview').style.backgroundColor = color;
+                document.getElementById('color-label').textContent = label;
+
+                // 選択状態のリングを更新
+                document.querySelectorAll('.color-preset').forEach(function(b) {
+                    b.classList.remove('ring-2', 'ring-offset-2', 'ring-gray-400', 'scale-110');
+                    b.setAttribute('aria-checked', 'false');
+                });
+                this.classList.add('ring-2', 'ring-offset-2', 'ring-gray-400', 'scale-110');
+                this.setAttribute('aria-checked', 'true');
+            });
         });
     </script>
 </x-app-layout>

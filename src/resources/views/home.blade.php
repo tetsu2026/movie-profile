@@ -254,84 +254,338 @@
             <h2 class="text-3xl md:text-4xl font-bold" style="letter-spacing: -0.02em;">こんなプロフィールが作れる</h2>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
-            {{-- プロフィールカード1 --}}
-            <div class="rounded-3xl overflow-hidden bg-white cursor-pointer transition-transform duration-300 hover:scale-[1.02]">
-                {{-- 動画プレースホルダー --}}
-                <div class="h-44 flex items-center justify-center" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                    <div class="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center">
-                        <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M8 5v14l11-7z"/>
-                        </svg>
+        {{-- 3カード均等グリッド --}}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5 items-stretch">
+
+            {{-- プロフィールカード1: インディゴ --}}
+            <div class="rounded-3xl bg-white p-6 border-2 flex flex-col relative overflow-hidden transition-shadow duration-300 hover:shadow-lg"
+                 style="border-color: #667eea;"
+                 x-data="{
+                     popupOpen: false,
+                     playing: false,
+                     thumbVisible: true,
+                     openPopup() {
+                         this.thumbVisible = false;
+                         setTimeout(() => {
+                             this.popupOpen = true;
+                             this.$nextTick(() => this.$refs.sampleVideo.play());
+                         }, 160);
+                     },
+                     closePopup() {
+                         this.popupOpen = false;
+                         this.$refs.sampleVideo.pause();
+                         this.$refs.sampleVideo.load();
+                         setTimeout(() => { this.thumbVisible = true; }, 220);
+                     }
+                 }"
+            >
+                {{-- 通常コンテンツ --}}
+                <div class="flex flex-col flex-1 transition-opacity duration-200"
+                     :class="{ 'opacity-0 pointer-events-none': !thumbVisible }">
+                    <h3 class="text-2xl font-extrabold mb-5"
+                        style="font-family: 'Plus Jakarta Sans', sans-serif; color: #1D1D1F; letter-spacing: -0.02em;">
+                        田中 太郎
+                    </h3>
+                    <div class="pt-4 border-t border-gray-100 flex-1">
+                        <p class="text-sm text-gray-500 leading-relaxed">
+                            フルスタックエンジニアとして5年の経験。ReactとLaravelが得意です。
+                        </p>
                     </div>
-                </div>
-                <div class="p-6">
-                    <div class="flex items-center gap-3 mb-3">
-                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold" style="background-color: #667eea;">田</div>
-                        <div>
-                            <p class="text-sm font-bold" style="color: #1D1D1F;">田中 太郎</p>
-                            <p class="text-xs text-gray-400">エンジニア / 東京</p>
+                    <div class="pt-4 mt-4 border-t border-gray-100">
+                        <div class="flex justify-end">
+                            <button
+                                type="button"
+                                @click="openPopup()"
+                                class="w-16 h-16 rounded-full border-4 flex items-center justify-center cursor-pointer hover:scale-105 transition-transform duration-200 focus:outline-none"
+                                style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-color: #667eea;"
+                                aria-label="サンプル動画を再生"
+                            >
+                                <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M8 5v14l11-7z"/>
+                                </svg>
+                            </button>
                         </div>
                     </div>
-                    <p class="text-xs text-gray-500 leading-relaxed">フルスタックエンジニアとして5年の経験。ReactとLaravelが得意です。</p>
                 </div>
-            </div>
 
-            {{-- プロフィールカード2 --}}
-            <div class="rounded-3xl overflow-hidden bg-white cursor-pointer transition-transform duration-300 hover:scale-[1.02]">
-                <div class="h-44 flex items-center justify-center" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                    <div class="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center">
-                        <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M8 5v14l11-7z"/>
-                        </svg>
-                    </div>
-                </div>
-                <div class="p-6">
-                    <div class="flex items-center gap-3 mb-3">
-                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold" style="background-color: #f5576c;">佐</div>
-                        <div>
-                            <p class="text-sm font-bold" style="color: #1D1D1F;">佐藤 花子</p>
-                            <p class="text-xs text-gray-400">デザイナー / 大阪</p>
-                        </div>
-                    </div>
-                    <p class="text-xs text-gray-500 leading-relaxed">UIデザイン3年目。ユーザー中心設計で使いやすいプロダクトを作ります。</p>
-                </div>
-            </div>
-
-            {{-- プロフィールカード3 + バッジ --}}
-            <div class="flex flex-col gap-4">
-                <div class="rounded-3xl overflow-hidden bg-white cursor-pointer transition-transform duration-300 hover:scale-[1.02] flex-1">
-                    <div class="h-32 flex items-center justify-center" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-                        <div class="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                {{-- フルカード動画オーバーレイ --}}
+                <div
+                    x-show="popupOpen"
+                    x-transition:enter="transition ease-out duration-200"
+                    x-transition:enter-start="opacity-0"
+                    x-transition:enter-end="opacity-100"
+                    x-transition:leave="transition ease-in duration-200"
+                    x-transition:leave-start="opacity-100"
+                    x-transition:leave-end="opacity-0"
+                    class="absolute inset-0 bg-black"
+                    style="display: none;"
+                >
+                    <video
+                        x-ref="sampleVideo"
+                        class="w-full h-full object-contain"
+                        playsinline
+                        preload="none"
+                        @play="playing = true"
+                        @pause="playing = false"
+                        @ended="closePopup()"
+                    >
+                        <source src="/cat-work.mp4" type="video/mp4">
+                    </video>
+                    <button
+                        type="button"
+                        class="absolute inset-0 flex items-center justify-center cursor-pointer"
+                        @click="playing ? $refs.sampleVideo.pause() : $refs.sampleVideo.play()"
+                        :aria-label="playing ? '停止' : '再生'"
+                    >
+                        <div x-show="!playing"
+                             class="rounded-full w-16 h-16 flex items-center justify-center transition-transform duration-200 hover:scale-110"
+                             style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <svg class="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M8 5v14l11-7z"/>
                             </svg>
                         </div>
+                        <div x-show="playing"
+                             class="absolute bottom-0 left-0 right-0 py-2 px-4 text-left"
+                             style="background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);">
+                            <span class="text-white text-xs opacity-80">クリックで停止</span>
+                        </div>
+                    </button>
+                    <button
+                        type="button"
+                        class="absolute top-3 right-3 flex items-center justify-center w-9 h-9 rounded-full text-white transition-colors duration-150 cursor-pointer"
+                        style="background-color: rgba(0,0,0,0.5);"
+                        @mouseenter="$el.style.backgroundColor='rgba(0,0,0,0.75)'"
+                        @mouseleave="$el.style.backgroundColor='rgba(0,0,0,0.5)'"
+                        @click.stop="closePopup()"
+                        aria-label="閉じる"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            {{-- プロフィールカード2: ローズ --}}
+            <div class="rounded-3xl bg-white p-6 border-2 flex flex-col relative overflow-hidden transition-shadow duration-300 hover:shadow-lg"
+                 style="border-color: #f5576c;"
+                 x-data="{
+                     popupOpen: false,
+                     playing: false,
+                     thumbVisible: true,
+                     openPopup() {
+                         this.thumbVisible = false;
+                         setTimeout(() => {
+                             this.popupOpen = true;
+                             this.$nextTick(() => this.$refs.sampleVideo.play());
+                         }, 160);
+                     },
+                     closePopup() {
+                         this.popupOpen = false;
+                         this.$refs.sampleVideo.pause();
+                         this.$refs.sampleVideo.load();
+                         setTimeout(() => { this.thumbVisible = true; }, 220);
+                     }
+                 }"
+            >
+                {{-- 通常コンテンツ --}}
+                <div class="flex flex-col flex-1 transition-opacity duration-200"
+                     :class="{ 'opacity-0 pointer-events-none': !thumbVisible }">
+                    <h3 class="text-2xl font-extrabold mb-5"
+                        style="font-family: 'Plus Jakarta Sans', sans-serif; color: #1D1D1F; letter-spacing: -0.02em;">
+                        佐藤 花子
+                    </h3>
+                    <div class="pt-4 border-t border-gray-100 flex-1">
+                        <p class="text-sm text-gray-500 leading-relaxed">
+                            UIデザイン3年目。ユーザー中心設計で使いやすいプロダクトを作ります。
+                        </p>
                     </div>
-                    <div class="p-5">
-                        <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background-color: #4facfe;">鈴</div>
-                            <div>
-                                <p class="text-sm font-bold" style="color: #1D1D1F;">鈴木 一郎</p>
-                                <p class="text-xs text-gray-400">マーケター / 名古屋</p>
-                            </div>
+                    <div class="pt-4 mt-4 border-t border-gray-100">
+                        <div class="flex justify-end">
+                            <button
+                                type="button"
+                                @click="openPopup()"
+                                class="w-16 h-16 rounded-full border-4 flex items-center justify-center cursor-pointer hover:scale-105 transition-transform duration-200 focus:outline-none"
+                                style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-color: #f5576c;"
+                                aria-label="サンプル動画を再生"
+                            >
+                                <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M8 5v14l11-7z"/>
+                                </svg>
+                            </button>
                         </div>
                     </div>
                 </div>
-                {{-- セキュリティバッジカード --}}
-                <div class="rounded-3xl p-5 flex items-center gap-4 cursor-default" style="background-color: #F0FDF4;">
-                    <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background-color: #DCFCE7;">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" style="color: #16A34A;">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>
+
+                {{-- フルカード動画オーバーレイ --}}
+                <div
+                    x-show="popupOpen"
+                    x-transition:enter="transition ease-out duration-200"
+                    x-transition:enter-start="opacity-0"
+                    x-transition:enter-end="opacity-100"
+                    x-transition:leave="transition ease-in duration-200"
+                    x-transition:leave-start="opacity-100"
+                    x-transition:leave-end="opacity-0"
+                    class="absolute inset-0 bg-black"
+                    style="display: none;"
+                >
+                    <video
+                        x-ref="sampleVideo"
+                        class="w-full h-full object-contain"
+                        playsinline
+                        preload="none"
+                        @play="playing = true"
+                        @pause="playing = false"
+                        @ended="closePopup()"
+                    >
+                        <source src="/cat-work.mp4" type="video/mp4">
+                    </video>
+                    <button
+                        type="button"
+                        class="absolute inset-0 flex items-center justify-center cursor-pointer"
+                        @click="playing ? $refs.sampleVideo.pause() : $refs.sampleVideo.play()"
+                        :aria-label="playing ? '停止' : '再生'"
+                    >
+                        <div x-show="!playing"
+                             class="rounded-full w-16 h-16 flex items-center justify-center transition-transform duration-200 hover:scale-110"
+                             style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                            <svg class="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                        </div>
+                        <div x-show="playing"
+                             class="absolute bottom-0 left-0 right-0 py-2 px-4 text-left"
+                             style="background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);">
+                            <span class="text-white text-xs opacity-80">クリックで停止</span>
+                        </div>
+                    </button>
+                    <button
+                        type="button"
+                        class="absolute top-3 right-3 flex items-center justify-center w-9 h-9 rounded-full text-white transition-colors duration-150 cursor-pointer"
+                        style="background-color: rgba(0,0,0,0.5);"
+                        @mouseenter="$el.style.backgroundColor='rgba(0,0,0,0.75)'"
+                        @mouseleave="$el.style.backgroundColor='rgba(0,0,0,0.5)'"
+                        @click.stop="closePopup()"
+                        aria-label="閉じる"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
-                    </div>
-                    <div>
-                        <p class="text-sm font-bold" style="color: #166534;">SSL / セキュア保存</p>
-                        <p class="text-xs" style="color: #15803D;">すべての動画は暗号化されています</p>
-                    </div>
+                    </button>
                 </div>
             </div>
+
+            {{-- プロフィールカード3: スカイ --}}
+            <div class="rounded-3xl bg-white p-6 border-2 flex flex-col relative overflow-hidden transition-shadow duration-300 hover:shadow-lg"
+                 style="border-color: #4facfe;"
+                 x-data="{
+                     popupOpen: false,
+                     playing: false,
+                     thumbVisible: true,
+                     openPopup() {
+                         this.thumbVisible = false;
+                         setTimeout(() => {
+                             this.popupOpen = true;
+                             this.$nextTick(() => this.$refs.sampleVideo.play());
+                         }, 160);
+                     },
+                     closePopup() {
+                         this.popupOpen = false;
+                         this.$refs.sampleVideo.pause();
+                         this.$refs.sampleVideo.load();
+                         setTimeout(() => { this.thumbVisible = true; }, 220);
+                     }
+                 }"
+            >
+                {{-- 通常コンテンツ --}}
+                <div class="flex flex-col flex-1 transition-opacity duration-200"
+                     :class="{ 'opacity-0 pointer-events-none': !thumbVisible }">
+                    <h3 class="text-2xl font-extrabold mb-5"
+                        style="font-family: 'Plus Jakarta Sans', sans-serif; color: #1D1D1F; letter-spacing: -0.02em;">
+                        鈴木 一郎
+                    </h3>
+                    <div class="pt-4 border-t border-gray-100 flex-1">
+                        <p class="text-sm text-gray-500 leading-relaxed">
+                            マーケター歴8年。データドリブンな施策で成果を出します。
+                        </p>
+                    </div>
+                    <div class="pt-4 mt-4 border-t border-gray-100">
+                        <div class="flex justify-end">
+                            <button
+                                type="button"
+                                @click="openPopup()"
+                                class="w-16 h-16 rounded-full border-4 flex items-center justify-center cursor-pointer hover:scale-105 transition-transform duration-200 focus:outline-none"
+                                style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border-color: #4facfe;"
+                                aria-label="サンプル動画を再生"
+                            >
+                                <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M8 5v14l11-7z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- フルカード動画オーバーレイ --}}
+                <div
+                    x-show="popupOpen"
+                    x-transition:enter="transition ease-out duration-200"
+                    x-transition:enter-start="opacity-0"
+                    x-transition:enter-end="opacity-100"
+                    x-transition:leave="transition ease-in duration-200"
+                    x-transition:leave-start="opacity-100"
+                    x-transition:leave-end="opacity-0"
+                    class="absolute inset-0 bg-black"
+                    style="display: none;"
+                >
+                    <video
+                        x-ref="sampleVideo"
+                        class="w-full h-full object-contain"
+                        playsinline
+                        preload="none"
+                        @play="playing = true"
+                        @pause="playing = false"
+                        @ended="closePopup()"
+                    >
+                        <source src="/cat-work.mp4" type="video/mp4">
+                    </video>
+                    <button
+                        type="button"
+                        class="absolute inset-0 flex items-center justify-center cursor-pointer"
+                        @click="playing ? $refs.sampleVideo.pause() : $refs.sampleVideo.play()"
+                        :aria-label="playing ? '停止' : '再生'"
+                    >
+                        <div x-show="!playing"
+                             class="rounded-full w-16 h-16 flex items-center justify-center transition-transform duration-200 hover:scale-110"
+                             style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                            <svg class="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                        </div>
+                        <div x-show="playing"
+                             class="absolute bottom-0 left-0 right-0 py-2 px-4 text-left"
+                             style="background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);">
+                            <span class="text-white text-xs opacity-80">クリックで停止</span>
+                        </div>
+                    </button>
+                    <button
+                        type="button"
+                        class="absolute top-3 right-3 flex items-center justify-center w-9 h-9 rounded-full text-white transition-colors duration-150 cursor-pointer"
+                        style="background-color: rgba(0,0,0,0.5);"
+                        @mouseenter="$el.style.backgroundColor='rgba(0,0,0,0.75)'"
+                        @mouseleave="$el.style.backgroundColor='rgba(0,0,0,0.5)'"
+                        @click.stop="closePopup()"
+                        aria-label="閉じる"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
         </div>
+
     </section>
 
     {{-- ========== 第2ベントーグリッド: 詳細機能 ========== --}}

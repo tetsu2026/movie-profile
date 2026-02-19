@@ -266,6 +266,7 @@
                      thumbVisible: true,
                      openPopup() {
                          this.thumbVisible = false;
+                         // 160ms: コンテンツのフェードアウト(opacity transition 200ms)が始まってから動画を表示
                          setTimeout(() => {
                              this.popupOpen = true;
                              this.$nextTick(() => this.$refs.sampleVideo.play());
@@ -275,6 +276,7 @@
                          this.popupOpen = false;
                          this.$refs.sampleVideo.pause();
                          this.$refs.sampleVideo.load();
+                         // 220ms: 動画のフェードアウト(opacity transition 200ms)が完了してからコンテンツを再表示
                          setTimeout(() => { this.thumbVisible = true; }, 220);
                      }
                  }"
@@ -309,61 +311,12 @@
                 </div>
 
                 {{-- フルカード動画オーバーレイ --}}
-                <div
-                    x-show="popupOpen"
-                    x-transition:enter="transition ease-out duration-200"
-                    x-transition:enter-start="opacity-0"
-                    x-transition:enter-end="opacity-100"
-                    x-transition:leave="transition ease-in duration-200"
-                    x-transition:leave-start="opacity-100"
-                    x-transition:leave-end="opacity-0"
-                    class="absolute inset-0 bg-black"
-                    style="display: none;"
-                >
-                    <video
-                        x-ref="sampleVideo"
-                        class="w-full h-full object-contain"
-                        playsinline
-                        preload="none"
-                        @play="playing = true"
-                        @pause="playing = false"
-                        @ended="closePopup()"
-                    >
-                        <source src="/cat-work.mp4" type="video/mp4">
-                    </video>
-                    <button
-                        type="button"
-                        class="absolute inset-0 flex items-center justify-center cursor-pointer"
-                        @click="playing ? $refs.sampleVideo.pause() : $refs.sampleVideo.play()"
-                        :aria-label="playing ? '停止' : '再生'"
-                    >
-                        <div x-show="!playing"
-                             class="rounded-full w-16 h-16 flex items-center justify-center transition-transform duration-200 hover:scale-110"
-                             style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                            <svg class="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M8 5v14l11-7z"/>
-                            </svg>
-                        </div>
-                        <div x-show="playing"
-                             class="absolute bottom-0 left-0 right-0 py-2 px-4 text-left"
-                             style="background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);">
-                            <span class="text-white text-xs opacity-80">クリックで停止</span>
-                        </div>
-                    </button>
-                    <button
-                        type="button"
-                        class="absolute top-3 right-3 flex items-center justify-center w-9 h-9 rounded-full text-white transition-colors duration-150 cursor-pointer"
-                        style="background-color: rgba(0,0,0,0.5);"
-                        @mouseenter="$el.style.backgroundColor='rgba(0,0,0,0.75)'"
-                        @mouseleave="$el.style.backgroundColor='rgba(0,0,0,0.5)'"
-                        @click.stop="closePopup()"
-                        aria-label="閉じる"
-                    >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                </div>
+                <x-fullcard-video-player
+                    :videoSrc="config('app.demo_video_url', '/cat-work.mp4')"
+                    videoRef="sampleVideo"
+                    buttonBackground="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"
+                    :autoClose="true"
+                />
             </div>
 
             {{-- プロフィールカード2: ローズ --}}
@@ -375,6 +328,7 @@
                      thumbVisible: true,
                      openPopup() {
                          this.thumbVisible = false;
+                         // 160ms: コンテンツのフェードアウト(opacity transition 200ms)が始まってから動画を表示
                          setTimeout(() => {
                              this.popupOpen = true;
                              this.$nextTick(() => this.$refs.sampleVideo.play());
@@ -384,6 +338,7 @@
                          this.popupOpen = false;
                          this.$refs.sampleVideo.pause();
                          this.$refs.sampleVideo.load();
+                         // 220ms: 動画のフェードアウト(opacity transition 200ms)が完了してからコンテンツを再表示
                          setTimeout(() => { this.thumbVisible = true; }, 220);
                      }
                  }"
@@ -418,61 +373,12 @@
                 </div>
 
                 {{-- フルカード動画オーバーレイ --}}
-                <div
-                    x-show="popupOpen"
-                    x-transition:enter="transition ease-out duration-200"
-                    x-transition:enter-start="opacity-0"
-                    x-transition:enter-end="opacity-100"
-                    x-transition:leave="transition ease-in duration-200"
-                    x-transition:leave-start="opacity-100"
-                    x-transition:leave-end="opacity-0"
-                    class="absolute inset-0 bg-black"
-                    style="display: none;"
-                >
-                    <video
-                        x-ref="sampleVideo"
-                        class="w-full h-full object-contain"
-                        playsinline
-                        preload="none"
-                        @play="playing = true"
-                        @pause="playing = false"
-                        @ended="closePopup()"
-                    >
-                        <source src="/cat-work.mp4" type="video/mp4">
-                    </video>
-                    <button
-                        type="button"
-                        class="absolute inset-0 flex items-center justify-center cursor-pointer"
-                        @click="playing ? $refs.sampleVideo.pause() : $refs.sampleVideo.play()"
-                        :aria-label="playing ? '停止' : '再生'"
-                    >
-                        <div x-show="!playing"
-                             class="rounded-full w-16 h-16 flex items-center justify-center transition-transform duration-200 hover:scale-110"
-                             style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                            <svg class="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M8 5v14l11-7z"/>
-                            </svg>
-                        </div>
-                        <div x-show="playing"
-                             class="absolute bottom-0 left-0 right-0 py-2 px-4 text-left"
-                             style="background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);">
-                            <span class="text-white text-xs opacity-80">クリックで停止</span>
-                        </div>
-                    </button>
-                    <button
-                        type="button"
-                        class="absolute top-3 right-3 flex items-center justify-center w-9 h-9 rounded-full text-white transition-colors duration-150 cursor-pointer"
-                        style="background-color: rgba(0,0,0,0.5);"
-                        @mouseenter="$el.style.backgroundColor='rgba(0,0,0,0.75)'"
-                        @mouseleave="$el.style.backgroundColor='rgba(0,0,0,0.5)'"
-                        @click.stop="closePopup()"
-                        aria-label="閉じる"
-                    >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                </div>
+                <x-fullcard-video-player
+                    :videoSrc="config('app.demo_video_url', '/cat-work.mp4')"
+                    videoRef="sampleVideo"
+                    buttonBackground="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"
+                    :autoClose="true"
+                />
             </div>
 
             {{-- プロフィールカード3: スカイ --}}
@@ -484,6 +390,7 @@
                      thumbVisible: true,
                      openPopup() {
                          this.thumbVisible = false;
+                         // 160ms: コンテンツのフェードアウト(opacity transition 200ms)が始まってから動画を表示
                          setTimeout(() => {
                              this.popupOpen = true;
                              this.$nextTick(() => this.$refs.sampleVideo.play());
@@ -493,6 +400,7 @@
                          this.popupOpen = false;
                          this.$refs.sampleVideo.pause();
                          this.$refs.sampleVideo.load();
+                         // 220ms: 動画のフェードアウト(opacity transition 200ms)が完了してからコンテンツを再表示
                          setTimeout(() => { this.thumbVisible = true; }, 220);
                      }
                  }"
@@ -527,61 +435,12 @@
                 </div>
 
                 {{-- フルカード動画オーバーレイ --}}
-                <div
-                    x-show="popupOpen"
-                    x-transition:enter="transition ease-out duration-200"
-                    x-transition:enter-start="opacity-0"
-                    x-transition:enter-end="opacity-100"
-                    x-transition:leave="transition ease-in duration-200"
-                    x-transition:leave-start="opacity-100"
-                    x-transition:leave-end="opacity-0"
-                    class="absolute inset-0 bg-black"
-                    style="display: none;"
-                >
-                    <video
-                        x-ref="sampleVideo"
-                        class="w-full h-full object-contain"
-                        playsinline
-                        preload="none"
-                        @play="playing = true"
-                        @pause="playing = false"
-                        @ended="closePopup()"
-                    >
-                        <source src="/cat-work.mp4" type="video/mp4">
-                    </video>
-                    <button
-                        type="button"
-                        class="absolute inset-0 flex items-center justify-center cursor-pointer"
-                        @click="playing ? $refs.sampleVideo.pause() : $refs.sampleVideo.play()"
-                        :aria-label="playing ? '停止' : '再生'"
-                    >
-                        <div x-show="!playing"
-                             class="rounded-full w-16 h-16 flex items-center justify-center transition-transform duration-200 hover:scale-110"
-                             style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-                            <svg class="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M8 5v14l11-7z"/>
-                            </svg>
-                        </div>
-                        <div x-show="playing"
-                             class="absolute bottom-0 left-0 right-0 py-2 px-4 text-left"
-                             style="background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);">
-                            <span class="text-white text-xs opacity-80">クリックで停止</span>
-                        </div>
-                    </button>
-                    <button
-                        type="button"
-                        class="absolute top-3 right-3 flex items-center justify-center w-9 h-9 rounded-full text-white transition-colors duration-150 cursor-pointer"
-                        style="background-color: rgba(0,0,0,0.5);"
-                        @mouseenter="$el.style.backgroundColor='rgba(0,0,0,0.75)'"
-                        @mouseleave="$el.style.backgroundColor='rgba(0,0,0,0.5)'"
-                        @click.stop="closePopup()"
-                        aria-label="閉じる"
-                    >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                </div>
+                <x-fullcard-video-player
+                    :videoSrc="config('app.demo_video_url', '/cat-work.mp4')"
+                    videoRef="sampleVideo"
+                    buttonBackground="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"
+                    :autoClose="true"
+                />
             </div>
 
         </div>

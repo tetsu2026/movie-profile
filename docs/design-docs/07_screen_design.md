@@ -8,7 +8,7 @@
 | ユーザー登録 | POST /register | 3項目 | ダッシュボード |
 | ログイン | POST /login | 3項目 | ダッシュボード |
 | ダッシュボード | GET /dashboard | なし | 各機能へ |
-| プロフィール編集 | PUT /dashboard/profile | 4項目 | ダッシュボード |
+| プロフィール編集 | PUT /dashboard/profile | 5項目 | ダッシュボード |
 | 動画一覧 | GET /dashboard/videos | なし | 動画アップロード |
 | 動画アップロード | POST /dashboard/videos | 1項目 | 動画一覧 |
 | プレビュー | GET /dashboard/preview | なし | プロフィール編集 |
@@ -99,19 +99,24 @@
 | 経歴 | biography | textarea | × | 1000文字以内 |
 | サムネイル用動画 | thumbnail_video_id | select | × | 自分の動画IDのみ選択可 |
 | ポップアップ用動画 | popup_video_id | select | × | 自分の動画IDのみ選択可 |
+| テーマカラー | theme_color | hidden（プリセット選択UI） | ○ | HEX形式（#RRGGBB）、プリセット6色から選択 |
+
+**テーマカラープリセット**: インディゴ(`#667eea`)・エメラルド(`#059669`)・パープル(`#a855f7`)・オレンジ(`#f97316`)・ブラック(`#1D1D1F`)など
 
 #### バリデーションルール
 ```php
 [
     'name' => 'required|string|max:50',
     'biography' => 'nullable|string|max:1000',
-    'thumbnail_video_id' => 'nullable|exists:videos,id',
-    'popup_video_id' => 'nullable|exists:videos,id',
+    'thumbnail_video_id' => 'nullable|integer|exists:videos,id',
+    'popup_video_id' => 'nullable|integer|exists:videos,id',
+    'theme_color' => 'required|string|regex:/^#[0-9A-Fa-f]{6}$/',
 ]
 ```
 
-**追加チェック（コントローラー側）**:
+**追加チェック（FormRequest側）**:
 - 選択された動画が自分の動画かどうかを確認
+- 選択された動画のstatus が `completed` かどうかを確認
 
 #### エラーメッセージ
 - **name required**: 名前は必須です
@@ -120,6 +125,8 @@
 - **thumbnail_video_id exists**: 選択された動画が見つかりません
 - **popup_video_id exists**: 選択された動画が見つかりません
 - **動画所有権エラー**: 他のユーザーの動画は選択できません
+- **theme_color required**: テーマカラーを選択してください
+- **theme_color regex**: テーマカラーの形式が正しくありません
 
 #### 成功時/失敗時の挙動
 - **成功時**:
@@ -217,29 +224,40 @@
 | 項目名 | データソース | 表示条件 |
 |--------|------------|---------|
 | ユーザー名 | profiles.name | 常時表示 |
-| 経歴 | profiles.biography | 設定されている場合のみ（min-heightで画面下まで表示） |
-| サムネイル動画 | videos (thumbnail_video_id) | 設定されている場合のみ（ボックス内右寄せ） |
+| 経歴 | profiles.biography | 設定されている場合のみ（min-heightで表示） |
+| サムネイル動画 | videos (thumbnail_video_id) | 設定されている場合のみ（カード内右寄せ） |
 | 管理ページへリンク | - | サムネイル動画の下（右寄せ）、公開ページのみ表示 |
-| ポップアップ動画 | videos (popup_video_id) | サムネイルクリック時のモーダル（自動再生） |
+| ポップアップ動画 | videos (popup_video_id) | サムネイルクリック時にカード内フルカード展開で自動再生 |
 
-### レイアウト構造
+### レイアウト構造（ベントーグリッド）
+
+ページ全体に `#F5F5F7`（Apple風ライトグレー）の背景を使用し、カードは角丸・テーマカラーのボーダーで表示する。
 
 ```
-┌──────────────────────────────────────────────┐
-│ [氏名]                                        │
-│ ─────────────────────────────────────────────│
-│ [自己紹介文]                                  │
-│                                              │
-│                                              │
-│（min-heightで画面下まで表示）                  │
-│ ─────────────────────────────────────────────│
-│                               ○ サムネ動画    │
-│                                [管理ページへ] │
+┌──────────────────────────────────────────────┐  ← 背景: #F5F5F7
+│  ╔═══════════════════════════════════════╗   │
+│  ║  [氏名]                               ║   │  ← カード: rounded-3xl, border-2（テーマカラー）
+│  ║  ─────────────────────────────────── ║   │    max-w-2xl mx-auto
+│  ║  [自己紹介文]                         ║   │
+│  ║                                       ║   │
+│  ║  （min-height: 30vh）                 ║   │
+│  ║  ─────────────────────────────────── ║   │
+│  ║                         ○ サムネ動画  ║   │
+│  ║                          [管理ページ] ║   │
+│  ╚═══════════════════════════════════════╝   │
 └──────────────────────────────────────────────┘
+
+【フルカード展開時】
+│  ╔═══════════════════════════════════════╗   │
+│  ║  ████████████████████████████████████║   │  ← カード内を黒背景の動画プレーヤーで全面覆う
+│  ║  ████████   ▶（テーマカラー）  ████████║   │    通常コンテンツは opacity-0 で高さを維持
+│  ║  ████████████████████████████████████║   │
+│  ╚═══════════════════════════════════════╝   │
 ```
 
-- ボックスは画面中央揃え（`max-w-4xl mx-auto`）
-- サムネイル動画はボックス内の右寄せ配置
+- カードは画面中央揃え（`max-w-2xl mx-auto`）
+- カードのボーダーカラーはユーザーが設定した `theme_color` を適用
+- サムネイル動画はカード内の右寄せ配置
 - 「管理ページへ」リンクは公開ページのみに表示（プレビューページには表示しない）
 
 ### 動画再生仕様
@@ -274,54 +292,43 @@
 - 背景色: `bg-gray-200`
 - テキスト色: `text-gray-500`
 
-#### ポップアップ動画（詳細）
+#### ポップアップ動画（詳細）— カード内フルカード展開
 
-**モーダル仕様**:
-- **背景オーバーレイ**: 半透明の黒（`bg-black/70`または`rgba(0, 0, 0, 0.7)`）
-- **モーダルサイズ**:
-  - 最大幅: 90vw
-  - 最大高さ: 80vh
-  - アスペクト比: 動画のオリジナルアスペクト比を維持
-- **配置**: 画面中央（`display: flex; align-items: center; justify-content: center;`）
-- **z-index**: 50
+**展開仕様**:
+- **表示方法**: プロフィールカードの `position: absolute; inset: 0` で全面オーバーレイ（モーダルではなくカード内展開）
+- **背景**: 黒（`bg-black`）
+- **動画サイズ**: カード全体を覆う（`w-full h-full object-contain`）
 
 **動画プレイヤー仕様**:
-- **再生方式**: 自動再生（モーダル表示時に自動再生）
-- **音声**: あり（ミュートではない、ただしブラウザ制限によりミュート自動再生になる場合あり）
-- **コントロール表示**: HTML5標準コントロール
-  - 再生/一時停止ボタン
-  - シークバー（進捗表示）
-  - 音量調整スライダー
-  - ミュートボタン
-  - フルスクリーンボタン
-  - 再生時間表示
-- **角丸**: `border-radius: 8px`
-- **影**: `box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25)`
+- **再生方式**: 展開時に自動再生
+- **音声**: あり
+- **コントロール**: HTML5標準コントロールなし（カスタム操作ボタンのみ）
+  - 再生/一時停止: 動画エリアをクリックでトグル
+  - 再生中: 下部グラデーションヒント表示
+  - 停止中: テーマカラーの円形再生ボタンを中央表示（サイズ: 64px）
 
 **閉じるボタン**:
-- **位置**: モーダル右上（動画の外側上部）
+- **位置**: カード内右上（`absolute top-3 right-3`）
 - **アイコン**: × マーク（SVG）
-- **サイズ**: 32px × 32px
-- **色**: 白（`text-white`）、ホバー時: グレー（`hover:text-gray-300`）
+- **色**: 白（`text-white`）、ホバー時: グレー
 
 **閉じる方法**:
 1. 閉じるボタン（×）クリック
-2. 背景オーバーレイクリック
-3. Escapeキー押下
+2. Escapeキー押下
 
 **閉じる時の動作**:
-- 動画を一時停止
-- モーダルをフェードアウト（`duration: 200ms`）
+- 動画を一時停止・リセット（`pause()` + `load()`）
+- フェードアウト後に通常コンテンツを再表示
 
 **アニメーション**:
-- 開く時: フェードイン（`opacity: 0 → 1`、`duration: 300ms`）
-- 閉じる時: フェードアウト（`opacity: 1 → 0`、`duration: 200ms`）
+- 開く時: サムネイルをフェードアウト（160ms後）→ フルカードをフェードイン（`duration: 200ms`）
+- 閉じる時: フルカードをフェードアウト（`duration: 200ms`）→ サムネイルをフェードイン（220ms後）
 
 #### 動画表示条件
 
-| 条件 | サムネイル表示 | ポップアップ表示 |
-|------|---------------|-----------------|
-| サムネイル動画あり & ポップアップ動画あり | 動画再生（クリック可能） | モーダルで再生 |
+| 条件 | サムネイル表示 | ポップアップ動画展開 |
+|------|---------------|---------------------|
+| サムネイル動画あり & ポップアップ動画あり | 動画再生（クリック可能） | カード内フルカード展開で再生 |
 | サムネイル動画あり & ポップアップ動画なし | 動画再生（クリック不可） | - |
 | サムネイル動画なし & ポップアップ動画あり | プレースホルダー | - |
 | サムネイル動画なし & ポップアップ動画なし | プレースホルダー | - |
@@ -459,7 +466,7 @@
 |----------|-----------|-------------------|
 | RegisterRequest | POST /register | email (unique), password (min:8, confirmed) |
 | LoginRequest | POST /login | email, password |
-| UpdateProfileRequest | PUT /dashboard/profile | name (required, max:50), biography (max:1000) |
+| UpdateProfileRequest | PUT /dashboard/profile | name (required, max:50), biography (max:1000), theme_color (required, HEX) |
 | StoreVideoRequest | POST /dashboard/videos | video (required, file, mimes, max:102400) |
 | UpdateUserRequest | PUT /admin/users/{id} | name, biography, role (in:admin,user) |
 
@@ -471,26 +478,42 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Video;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateProfileRequest extends FormRequest
 {
-    public function authorize()
+    public function authorize(): bool
     {
         return true; // authミドルウェアで認証済み
     }
 
-    public function rules()
+    public function rules(): array
     {
+        $videoValidation = function ($attribute, $value, $fail) {
+            if ($value) {
+                $video = Video::find($value);
+                // 所有権チェック
+                if (!$video || $video->user_id !== $this->user()->id) {
+                    $fail('選択された動画が無効です');
+                }
+                // エンコード完了チェック
+                if ($video && $video->status !== 'completed') {
+                    $fail('エンコードが完了していない動画は選択できません');
+                }
+            }
+        };
+
         return [
             'name' => 'required|string|max:50',
             'biography' => 'nullable|string|max:1000',
-            'thumbnail_video_id' => 'nullable|exists:videos,id',
-            'popup_video_id' => 'nullable|exists:videos,id',
+            'thumbnail_video_id' => ['nullable', 'integer', 'exists:videos,id', $videoValidation],
+            'popup_video_id' => ['nullable', 'integer', 'exists:videos,id', $videoValidation],
+            'theme_color' => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ];
     }
 
-    public function messages()
+    public function messages(): array
     {
         return [
             'name.required' => '名前は必須です',
@@ -498,6 +521,8 @@ class UpdateProfileRequest extends FormRequest
             'biography.max' => '経歴は1000文字以内で入力してください',
             'thumbnail_video_id.exists' => '選択された動画が見つかりません',
             'popup_video_id.exists' => '選択された動画が見つかりません',
+            'theme_color.required' => 'テーマカラーを選択してください',
+            'theme_color.regex' => 'テーマカラーの形式が正しくありません',
         ];
     }
 }

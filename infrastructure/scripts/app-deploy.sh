@@ -138,11 +138,12 @@ update_app() {
     log_step "1/7: ディレクトリ移動"
     cd "$APP_DIR"
 
+    # git操作・artisanコマンド実行のため一時的にec2-userへ所有権変更（終了時にnginxへ戻す）
+    sudo chown -R "$USER":"$USER" "$APP_DIR"
+
     # .gitがない場合はリポジトリを復元してからアップデートを続行
     if [[ ! -d ".git" ]]; then
         log_warn ".gitが見つかりません。Gitリポジトリを復元します..."
-        # git操作のため一時的にec2-userへ所有権変更（終了時にnginxへ戻す）
-        sudo chown -R "$USER":"$USER" "$APP_DIR"
         mkdir -p ~/.ssh
         ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
         git init

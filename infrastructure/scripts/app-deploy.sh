@@ -3,6 +3,13 @@
 # アプリケーションデプロイスクリプト
 # Movie Profile Platform - EC2へのLaravelアプリデプロイ
 #
+# リポジトリ構造:
+#   /var/www/movie-prf/   ... gitリポジトリルート = Laravelアプリルート
+#     artisan
+#     public/             ... Nginxのdocument root
+#     resources/
+#     ...
+#
 
 set -e
 
@@ -16,8 +23,8 @@ NC='\033[0m' # No Color
 # 設定
 APP_DIR="/var/www/movie-prf"
 APP_USER="nginx"
-REPO_URL="git@github.com:YOUR_USERNAME/movie-prf.git"
-BRANCH="main"
+REPO_URL="git@github.com:tetsu2026/movie-profile.git"
+BRANCH="master"
 
 # ログ出力関数
 log_info() {
@@ -43,13 +50,13 @@ show_help() {
     echo "オプション:"
     echo "  -h, --help          このヘルプを表示"
     echo "  -r, --repo          GitリポジトリURL"
-    echo "  -b, --branch        デプロイするブランチ (デフォルト: main)"
+    echo "  -b, --branch        デプロイするブランチ (デフォルト: master)"
     echo "  -d, --dir           アプリケーションディレクトリ (デフォルト: /var/www/movie-prf)"
     echo "  --setup             初回セットアップを実行"
     echo "  --update            既存アプリの更新のみ"
     echo ""
     echo "例:"
-    echo "  $0 --setup --repo git@github.com:user/repo.git"
+    echo "  $0 --setup"
     echo "  $0 --update"
 }
 
@@ -138,9 +145,19 @@ update_app() {
     log_step "1/7: ディレクトリ移動"
     cd "$APP_DIR"
 
+    # git操作・artisanコマンド実行のため一時的にec2-userへ所有権変更（終了時にnginxへ戻す）
+    sudo chown -R "$USER":"$USER" "$APP_DIR"
+
+    # .gitがない場合はリポジトリを復元してからアップデートを続行
     if [[ ! -d ".git" ]]; then
-        log_error "Gitリポジトリが見つかりません。--setupオプションで初期化してください。"
-        exit 1
+        log_warn ".gitが見つかりません。Gitリポジトリを復元します..."
+        mkdir -p ~/.ssh
+        ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+        git init
+        git remote add origin "$REPO_URL"
+        git fetch origin "$BRANCH"
+        git reset --hard "origin/$BRANCH"
+        log_info "Gitリポジトリの復元完了"
     fi
 
     log_step "2/7: メンテナンスモード開始"
@@ -166,14 +183,14 @@ update_app() {
     php artisan view:cache
     php artisan optimize
 
+    # メンテナンスモード終了（chownより前に実行。chown後はec2-userでunlinkできなくなるため）
+    php artisan up
+
     # 権限再設定
     sudo chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
     sudo chmod -R 755 "$APP_DIR"
     sudo chmod -R 775 "$APP_DIR/storage"
     sudo chmod -R 775 "$APP_DIR/bootstrap/cache"
-
-    # メンテナンスモード終了
-    php artisan up
 
     log_info "アプリケーション更新完了！"
 }
@@ -258,10 +275,6 @@ main() {
     echo ""
 
     if $setup_mode; then
-        if [[ "$REPO_URL" == "https://github.com/YOUR_USERNAME/movie-prf.git" ]]; then
-            log_error "GitリポジトリURLを指定してください: --repo <URL>"
-            exit 1
-        fi
         initial_setup
         restart_services
         check_status

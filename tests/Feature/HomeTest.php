@@ -3,10 +3,11 @@
 namespace Tests\Feature;
 
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class HomeTest extends TestCase
 {
-    /** @test */
+    #[Test]
     public function home_page_can_be_displayed(): void
     {
         $response = $this->get('/');

@@ -24,6 +24,7 @@ class ProfileFactory extends Factory
             'thumbnail_video_id' => null,
             'video_order' => null,
             'is_public' => true,
+            'theme_color' => '#667eea',
         ];
     }
 

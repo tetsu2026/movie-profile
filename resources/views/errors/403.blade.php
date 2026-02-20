@@ -1,23 +1,27 @@
 <x-guest-layout>
-    <div class="container mx-auto px-4 py-16 text-center">
-        <div class="max-w-md mx-auto">
-            <h1 class="text-6xl font-bold text-red-600 mb-4">403</h1>
-            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Forbidden</h2>
-            <p class="text-lg text-gray-700 mb-8">この操作を実行する権限がありません</p>
+    <div class="text-center py-4">
+        <p class="text-5xl font-extrabold mb-3" style="font-family: 'Plus Jakarta Sans', sans-serif; color: #1D1D1F;">403</p>
+        <h1 class="text-xl font-semibold mb-2" style="color: #1D1D1F;">アクセス権限がありません</h1>
+        <p class="text-sm text-gray-400 mb-6">この操作を実行する権限がありません。</p>
 
-            <div class="space-y-4">
-                @auth
-                    <a href="{{ route('dashboard') }}"
-                       class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded transition duration-200">
-                        ダッシュボードへ戻る
-                    </a>
-                @else
-                    <a href="{{ route('home') }}"
-                       class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded transition duration-200">
-                        トップページへ戻る
-                    </a>
-                @endauth
-            </div>
-        </div>
+        @auth
+            <a href="{{ route('dashboard') }}"
+               class="inline-flex items-center gap-1.5 text-sm font-medium hover:opacity-70 transition-opacity duration-150 cursor-pointer"
+               style="color: #1D1D1F;">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+                </svg>
+                ダッシュボードに戻る
+            </a>
+        @else
+            <a href="{{ route('home') }}"
+               class="inline-flex items-center gap-1.5 text-sm font-medium hover:opacity-70 transition-opacity duration-150 cursor-pointer"
+               style="color: #1D1D1F;">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+                </svg>
+                トップページに戻る
+            </a>
+        @endauth
     </div>
 </x-guest-layout>

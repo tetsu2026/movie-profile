@@ -7,12 +7,13 @@ use App\Models\User;
 use App\Models\Video;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class PublicProfileTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function public_profile_page_can_be_displayed(): void
     {
         $user = User::factory()->create();
@@ -31,7 +32,7 @@ class PublicProfileTest extends TestCase
         $response->assertSee('自己紹介文です');
     }
 
-    /** @test */
+    #[Test]
     public function public_profile_page_returns_404_for_nonexistent_user(): void
     {
         $response = $this->get('/users/99999');
@@ -39,7 +40,7 @@ class PublicProfileTest extends TestCase
         $response->assertStatus(404);
     }
 
-    /** @test */
+    #[Test]
     public function public_profile_page_displays_thumbnail_video(): void
     {
         $user = User::factory()->create();

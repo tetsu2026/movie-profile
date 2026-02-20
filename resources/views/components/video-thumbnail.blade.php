@@ -3,7 +3,8 @@
     'video',
     'popupVideo' => null,
     'size' => 'md',
-    'inline' => false
+    'inline' => false,
+    'themeColor' => '#667eea',
 ])
 
 @php
@@ -22,7 +23,8 @@
         {{-- クリック可能なサムネイル（ポップアップ動画あり） --}}
         <button
             type="button"
-            class="w-full h-full rounded-full overflow-hidden shadow-lg hover:scale-105 transition-transform cursor-pointer border-4 border-white"
+            class="w-full h-full rounded-full overflow-hidden shadow-lg hover:scale-105 transition-transform duration-200 cursor-pointer border-4"
+            style="border-color: {{ $themeColor }};"
             x-data
             @click="$dispatch('open-video-modal', { videoId: '{{ $popupVideo->id }}' })"
             aria-label="動画を再生"
@@ -40,7 +42,8 @@
         </button>
     @else
         {{-- クリック不可のサムネイル（ポップアップ動画なし） --}}
-        <div class="w-full h-full rounded-full overflow-hidden shadow-lg border-4 border-white">
+        <div class="w-full h-full rounded-full overflow-hidden shadow-lg border-4"
+             style="border-color: {{ $themeColor }};">
             <video
                 class="w-full h-full object-cover"
                 autoplay

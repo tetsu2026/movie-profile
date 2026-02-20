@@ -45,12 +45,18 @@ CREATE TABLE profiles (
     biography TEXT NULL COMMENT '経歴（最大1000文字）',
     thumbnail_video_id BIGINT UNSIGNED NULL COMMENT 'サムネイル用動画ID',
     popup_video_id BIGINT UNSIGNED NULL COMMENT 'ポップアップ用動画ID',
+    video_order JSON NULL COMMENT '動画の表示順序（JSON配列）',
+    is_public TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'プロフィール公開状態（1: 公開, 0: 非公開）',
+    theme_color VARCHAR(7) NOT NULL DEFAULT '#667eea' COMMENT '公開ページのテーマカラー（HEX）',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '作成日時',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日時',
+    deleted_at TIMESTAMP NULL COMMENT '論理削除日時',
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (thumbnail_video_id) REFERENCES videos(id) ON DELETE SET NULL,
     FOREIGN KEY (popup_video_id) REFERENCES videos(id) ON DELETE SET NULL,
-    INDEX idx_user_id (user_id)
+    INDEX idx_user_id (user_id),
+    INDEX idx_is_public (is_public),
+    INDEX idx_deleted_at (deleted_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='ユーザープロフィール';
 ```
 
@@ -60,7 +66,11 @@ CREATE TABLE profiles (
 - `name`: 公開ページに表示される名前（必須、50文字以内）
 - `biography`: 経歴テキスト（任意、1000文字以内）
 - `thumbnail_video_id`: 常時表示される円形サムネイル動画（任意）
-- `popup_video_id`: クリック時にモーダル表示される動画（任意）
+- `popup_video_id`: サムネイルクリック時にカード内でフルカード展開再生される動画（任意）
+- `video_order`: 動画の表示順序をJSON配列で保持（任意）
+- `is_public`: プロフィール公開状態（true: 公開, false: 非公開、デフォルト: 公開）
+- `theme_color`: 公開ページのカード枠・サムネイル枠に反映されるテーマカラー（HEX形式、デフォルト: #667eea）
+- `deleted_at`: ソフトデリート用（Laravel SoftDeletesトレイト）
 
 ### videos テーブル
 
@@ -140,8 +150,12 @@ erDiagram
         text biography
         bigint thumbnail_video_id FK
         bigint popup_video_id FK
+        json video_order
+        boolean is_public
+        varchar theme_color
         timestamp created_at
         timestamp updated_at
+        timestamp deleted_at
     }
 
     videos {
@@ -172,6 +186,8 @@ erDiagram
 - `PRIMARY KEY (id)`: 主キー
 - `UNIQUE KEY (user_id)`: 1ユーザー1プロフィールの保証
 - `INDEX (user_id)`: ユーザーからプロフィール取得の高速化
+- `INDEX (is_public)`: 公開ページ一覧取得時の絞り込み
+- `INDEX (deleted_at)`: ソフトデリート除外クエリの最適化
 
 ### videos テーブル
 - `PRIMARY KEY (id)`: 主キー

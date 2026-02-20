@@ -17,7 +17,7 @@ class UpdateProfileRequestTest extends TestCase
         $request = new UpdateProfileRequest();
         $rules = $request->rules();
 
-        $validator = Validator::make(['name' => ''], $rules);
+        $validator = Validator::make(['name' => '', 'theme_color' => '#667eea'], $rules);
 
         $this->assertTrue($validator->fails());
         $this->assertArrayHasKey('name', $validator->errors()->toArray());
@@ -29,7 +29,7 @@ class UpdateProfileRequestTest extends TestCase
         $request = new UpdateProfileRequest();
         $rules = $request->rules();
 
-        $validator = Validator::make(['name' => str_repeat('あ', 51)], $rules);
+        $validator = Validator::make(['name' => str_repeat('あ', 51), 'theme_color' => '#667eea'], $rules);
 
         $this->assertTrue($validator->fails());
         $this->assertArrayHasKey('name', $validator->errors()->toArray());
@@ -41,7 +41,7 @@ class UpdateProfileRequestTest extends TestCase
         $request = new UpdateProfileRequest();
         $rules = $request->rules();
 
-        $validator = Validator::make(['name' => str_repeat('あ', 50)], $rules);
+        $validator = Validator::make(['name' => str_repeat('あ', 50), 'theme_color' => '#667eea'], $rules);
 
         $this->assertFalse($validator->fails());
     }
@@ -52,7 +52,7 @@ class UpdateProfileRequestTest extends TestCase
         $request = new UpdateProfileRequest();
         $rules = $request->rules();
 
-        $validator = Validator::make(['name' => 'テスト', 'biography' => null], $rules);
+        $validator = Validator::make(['name' => 'テスト', 'biography' => null, 'theme_color' => '#667eea'], $rules);
 
         $this->assertFalse($validator->fails());
     }
@@ -66,6 +66,7 @@ class UpdateProfileRequestTest extends TestCase
         $validator = Validator::make([
             'name' => 'テスト',
             'biography' => str_repeat('あ', 1001),
+            'theme_color' => '#667eea',
         ], $rules);
 
         $this->assertTrue($validator->fails());
@@ -81,6 +82,7 @@ class UpdateProfileRequestTest extends TestCase
         $validator = Validator::make([
             'name' => 'テスト',
             'biography' => str_repeat('あ', 1000),
+            'theme_color' => '#667eea',
         ], $rules);
 
         $this->assertFalse($validator->fails());

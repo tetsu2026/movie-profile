@@ -27,7 +27,6 @@ services:
     environment:
       - DB_HOST=db
       - DB_PORT=3306
-      - DB_DATABASE=movie_prf
       - DB_USERNAME=root
       - DB_PASSWORD=root
       - AWS_ACCESS_KEY_ID=minioadmin

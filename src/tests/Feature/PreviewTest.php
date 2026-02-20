@@ -6,12 +6,13 @@ use App\Models\Profile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class PreviewTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function preview_page_can_be_displayed_for_authenticated_users(): void
     {
         $user = User::factory()->create();
@@ -23,7 +24,7 @@ class PreviewTest extends TestCase
         $response->assertViewIs('preview');
     }
 
-    /** @test */
+    #[Test]
     public function preview_page_redirects_guests_to_login(): void
     {
         $response = $this->get('/dashboard/preview');

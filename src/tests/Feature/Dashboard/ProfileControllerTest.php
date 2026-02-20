@@ -7,12 +7,13 @@ use App\Models\User;
 use App\Models\Video;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class ProfileControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function profile_edit_page_can_be_displayed(): void
     {
         $user = User::factory()->create();
@@ -24,7 +25,7 @@ class ProfileControllerTest extends TestCase
         $response->assertViewIs('dashboard.profile.edit');
     }
 
-    /** @test */
+    #[Test]
     public function profile_edit_page_redirects_guests_to_login(): void
     {
         $response = $this->get('/dashboard/profile/edit');
@@ -32,7 +33,7 @@ class ProfileControllerTest extends TestCase
         $response->assertRedirect('/login');
     }
 
-    /** @test */
+    #[Test]
     public function profile_can_be_updated(): void
     {
         $user = User::factory()->create();
@@ -55,7 +56,7 @@ class ProfileControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function profile_update_fails_without_name(): void
     {
         $user = User::factory()->create();
@@ -69,7 +70,7 @@ class ProfileControllerTest extends TestCase
         $response->assertSessionHasErrors('name');
     }
 
-    /** @test */
+    #[Test]
     public function profile_update_fails_with_too_long_name(): void
     {
         $user = User::factory()->create();
@@ -83,7 +84,7 @@ class ProfileControllerTest extends TestCase
         $response->assertSessionHasErrors('name');
     }
 
-    /** @test */
+    #[Test]
     public function profile_update_fails_with_too_long_biography(): void
     {
         $user = User::factory()->create();
@@ -97,7 +98,7 @@ class ProfileControllerTest extends TestCase
         $response->assertSessionHasErrors('biography');
     }
 
-    /** @test */
+    #[Test]
     public function profile_can_be_updated_with_thumbnail_video(): void
     {
         $user = User::factory()->create();
@@ -118,7 +119,7 @@ class ProfileControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function profile_can_be_updated_with_theme_color(): void
     {
         $user = User::factory()->create();
@@ -136,7 +137,7 @@ class ProfileControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function profile_update_fails_without_theme_color(): void
     {
         $user = User::factory()->create();
@@ -149,7 +150,7 @@ class ProfileControllerTest extends TestCase
         $response->assertSessionHasErrors('theme_color');
     }
 
-    /** @test */
+    #[Test]
     public function profile_update_fails_with_invalid_theme_color(): void
     {
         $user = User::factory()->create();
@@ -163,7 +164,7 @@ class ProfileControllerTest extends TestCase
         $response->assertSessionHasErrors('theme_color');
     }
 
-    /** @test */
+    #[Test]
     public function profile_edit_shows_completed_videos(): void
     {
         $user = User::factory()->create();

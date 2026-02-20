@@ -8,6 +8,7 @@ use App\Models\Video;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class UserControllerTest extends TestCase
 {
@@ -19,7 +20,7 @@ class UserControllerTest extends TestCase
         Storage::fake('s3');
     }
 
-    /** @test */
+    #[Test]
     public function admin_user_index_page_can_be_displayed(): void
     {
         $admin = User::factory()->admin()->create();
@@ -31,7 +32,7 @@ class UserControllerTest extends TestCase
         $response->assertViewIs('admin.users.index');
     }
 
-    /** @test */
+    #[Test]
     public function admin_user_index_page_is_forbidden_for_regular_users(): void
     {
         $user = User::factory()->create();
@@ -42,7 +43,7 @@ class UserControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function admin_user_index_page_redirects_guests_to_login(): void
     {
         $response = $this->get('/admin/users');
@@ -50,7 +51,7 @@ class UserControllerTest extends TestCase
         $response->assertRedirect('/login');
     }
 
-    /** @test */
+    #[Test]
     public function admin_user_edit_page_can_be_displayed(): void
     {
         $admin = User::factory()->admin()->create();
@@ -64,7 +65,7 @@ class UserControllerTest extends TestCase
         $response->assertViewIs('admin.users.edit');
     }
 
-    /** @test */
+    #[Test]
     public function admin_user_edit_page_is_forbidden_for_regular_users(): void
     {
         $user = User::factory()->create();
@@ -77,7 +78,7 @@ class UserControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function admin_can_update_user(): void
     {
         $admin = User::factory()->admin()->create();
@@ -101,7 +102,7 @@ class UserControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function admin_can_change_user_role_to_admin(): void
     {
         $admin = User::factory()->admin()->create();
@@ -122,7 +123,7 @@ class UserControllerTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function regular_user_cannot_update_other_users(): void
     {
         $user = User::factory()->create();
@@ -139,7 +140,7 @@ class UserControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function admin_can_delete_user(): void
     {
         $admin = User::factory()->admin()->create();
@@ -155,7 +156,7 @@ class UserControllerTest extends TestCase
         $this->assertSoftDeleted('users', ['id' => $targetUser->id]);
     }
 
-    /** @test */
+    #[Test]
     public function regular_user_cannot_delete_users(): void
     {
         $user = User::factory()->create();
@@ -169,7 +170,7 @@ class UserControllerTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $targetUser->id]);
     }
 
-    /** @test */
+    #[Test]
     public function admin_user_index_shows_all_users(): void
     {
         $admin = User::factory()->admin()->create();

@@ -6,12 +6,13 @@ use Tests\TestCase;
 use App\Http\Requests\UpdateProfileRequest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Validator;
+use PHPUnit\Framework\Attributes\Test;
 
 class UpdateProfileRequestTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function name_is_required(): void
     {
         $request = new UpdateProfileRequest();
@@ -23,7 +24,7 @@ class UpdateProfileRequestTest extends TestCase
         $this->assertArrayHasKey('name', $validator->errors()->toArray());
     }
 
-    /** @test */
+    #[Test]
     public function name_must_be_50_characters_or_less(): void
     {
         $request = new UpdateProfileRequest();
@@ -35,7 +36,7 @@ class UpdateProfileRequestTest extends TestCase
         $this->assertArrayHasKey('name', $validator->errors()->toArray());
     }
 
-    /** @test */
+    #[Test]
     public function name_with_50_characters_passes(): void
     {
         $request = new UpdateProfileRequest();
@@ -46,7 +47,7 @@ class UpdateProfileRequestTest extends TestCase
         $this->assertFalse($validator->fails());
     }
 
-    /** @test */
+    #[Test]
     public function biography_is_optional(): void
     {
         $request = new UpdateProfileRequest();
@@ -57,7 +58,7 @@ class UpdateProfileRequestTest extends TestCase
         $this->assertFalse($validator->fails());
     }
 
-    /** @test */
+    #[Test]
     public function biography_must_be_1000_characters_or_less(): void
     {
         $request = new UpdateProfileRequest();
@@ -73,7 +74,7 @@ class UpdateProfileRequestTest extends TestCase
         $this->assertArrayHasKey('biography', $validator->errors()->toArray());
     }
 
-    /** @test */
+    #[Test]
     public function biography_with_1000_characters_passes(): void
     {
         $request = new UpdateProfileRequest();

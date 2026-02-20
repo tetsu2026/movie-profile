@@ -6,12 +6,13 @@ use Tests\TestCase;
 use App\Models\User;
 use App\Models\Video;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
 
 class VideoTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function video_belongs_to_user(): void
     {
         $user = User::factory()->create();
@@ -21,7 +22,7 @@ class VideoTest extends TestCase
         $this->assertEquals($user->id, $video->user->id);
     }
 
-    /** @test */
+    #[Test]
     public function video_can_be_soft_deleted(): void
     {
         $video = Video::factory()->create();
@@ -33,7 +34,7 @@ class VideoTest extends TestCase
         $this->assertNotNull(Video::withTrashed()->find($video->id));
     }
 
-    /** @test */
+    #[Test]
     public function video_has_default_status_uploading(): void
     {
         $video = Video::factory()->create();
@@ -41,7 +42,7 @@ class VideoTest extends TestCase
         $this->assertEquals('uploading', $video->status);
     }
 
-    /** @test */
+    #[Test]
     public function video_can_be_encoding(): void
     {
         $video = Video::factory()->encoding()->create();
@@ -50,7 +51,7 @@ class VideoTest extends TestCase
         $this->assertNotNull($video->original_path);
     }
 
-    /** @test */
+    #[Test]
     public function video_can_be_completed(): void
     {
         $video = Video::factory()->completed()->create();
@@ -59,7 +60,7 @@ class VideoTest extends TestCase
         $this->assertNotNull($video->encoded_path);
     }
 
-    /** @test */
+    #[Test]
     public function video_can_be_failed(): void
     {
         $video = Video::factory()->failed()->create();
@@ -69,7 +70,7 @@ class VideoTest extends TestCase
         $this->assertNotNull($video->error_message);
     }
 
-    /** @test */
+    #[Test]
     public function video_fillable_attributes_work(): void
     {
         $user = User::factory()->create();
@@ -87,7 +88,7 @@ class VideoTest extends TestCase
         $this->assertEquals('completed', $video->status);
     }
 
-    /** @test */
+    #[Test]
     public function video_casts_duration_to_integer(): void
     {
         $video = Video::factory()->create(['duration' => '45']);
@@ -96,7 +97,7 @@ class VideoTest extends TestCase
         $this->assertEquals(45, $video->duration);
     }
 
-    /** @test */
+    #[Test]
     public function video_casts_file_size_to_integer(): void
     {
         $video = Video::factory()->create(['file_size' => '5000000']);

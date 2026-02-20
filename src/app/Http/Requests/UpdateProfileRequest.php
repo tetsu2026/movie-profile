@@ -51,6 +51,12 @@ class UpdateProfileRequest extends FormRequest
                 'exists:videos,id',
                 $videoValidation,
             ],
+            // テーマカラー（HEX形式）
+            'theme_color' => [
+                'required',
+                'string',
+                'regex:/^#[0-9A-Fa-f]{6}$/',
+            ],
         ];
     }
 
@@ -65,6 +71,8 @@ class UpdateProfileRequest extends FormRequest
             'biography.max' => '経歴は1000文字以内で入力してください',
             'thumbnail_video_id.exists' => '選択された動画が見つかりません',
             'popup_video_id.exists' => '選択された動画が見つかりません',
+            'theme_color.required' => 'テーマカラーを選択してください',
+            'theme_color.regex' => 'テーマカラーの形式が正しくありません',
         ];
     }
 }

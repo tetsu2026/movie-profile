@@ -7,12 +7,13 @@ use App\Http\Requests\StoreVideoRequest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Validator;
+use PHPUnit\Framework\Attributes\Test;
 
 class StoreVideoRequestTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function video_is_required(): void
     {
         $request = new StoreVideoRequest();
@@ -24,7 +25,7 @@ class StoreVideoRequestTest extends TestCase
         $this->assertArrayHasKey('video', $validator->errors()->toArray());
     }
 
-    /** @test */
+    #[Test]
     public function video_must_be_file(): void
     {
         $request = new StoreVideoRequest();
@@ -36,7 +37,7 @@ class StoreVideoRequestTest extends TestCase
         $this->assertArrayHasKey('video', $validator->errors()->toArray());
     }
 
-    /** @test */
+    #[Test]
     public function video_must_be_mp4_mov_avi_or_wmv(): void
     {
         $request = new StoreVideoRequest();
@@ -50,7 +51,7 @@ class StoreVideoRequestTest extends TestCase
         $this->assertArrayHasKey('video', $validator->errors()->toArray());
     }
 
-    /** @test */
+    #[Test]
     public function video_mp4_format_passes(): void
     {
         $request = new StoreVideoRequest();
@@ -62,7 +63,7 @@ class StoreVideoRequestTest extends TestCase
         $this->assertFalse($validator->fails());
     }
 
-    /** @test */
+    #[Test]
     public function video_must_be_100mb_or_less(): void
     {
         $request = new StoreVideoRequest();
@@ -76,7 +77,7 @@ class StoreVideoRequestTest extends TestCase
         $this->assertArrayHasKey('video', $validator->errors()->toArray());
     }
 
-    /** @test */
+    #[Test]
     public function video_with_100mb_passes(): void
     {
         $request = new StoreVideoRequest();
@@ -89,7 +90,7 @@ class StoreVideoRequestTest extends TestCase
         $this->assertFalse($validator->fails());
     }
 
-    /** @test */
+    #[Test]
     public function custom_error_messages_are_returned(): void
     {
         $request = new StoreVideoRequest();

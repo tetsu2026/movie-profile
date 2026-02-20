@@ -1,47 +1,52 @@
 <x-guest-layout>
-    <!-- Session Status -->
+    <h1 class="text-xl font-bold mb-1" style="font-family: 'Plus Jakarta Sans', sans-serif; color: #1D1D1F;">おかえりなさい</h1>
+    <p class="text-sm text-gray-500 mb-6">アカウントにログインしてください</p>
+
+    <!-- セッションステータス -->
     <x-auth-session-status class="mb-4" :status="session('status')" />
 
-    <form method="POST" action="{{ route('login') }}">
+    <form method="POST" action="{{ route('login') }}" class="space-y-4">
         @csrf
 
-        <!-- Email Address -->
+        <!-- メールアドレス -->
         <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autofocus autocomplete="username" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+            <x-input-label for="email" value="メールアドレス" />
+            <x-text-input id="email" type="email" name="email" :value="old('email')" required autofocus autocomplete="username" />
+            <x-input-error :messages="$errors->get('email')" class="mt-1.5" />
         </div>
 
-        <!-- Password -->
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
-
-            <x-text-input id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="current-password" />
-
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+        <!-- パスワード -->
+        <div>
+            <x-input-label for="password" value="パスワード" />
+            <x-text-input id="password" type="password" name="password" required autocomplete="current-password" />
+            <x-input-error :messages="$errors->get('password')" class="mt-1.5" />
         </div>
 
-        <!-- Remember Me -->
-        <div class="block mt-4">
-            <label for="remember_me" class="inline-flex items-center">
-                <input id="remember_me" type="checkbox" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" name="remember">
-                <span class="ms-2 text-sm text-gray-600">{{ __('Remember me') }}</span>
+        <!-- ログイン状態を保持 -->
+        <div class="flex items-center justify-between">
+            <label for="remember_me" class="inline-flex items-center gap-2 cursor-pointer">
+                <input id="remember_me" type="checkbox" name="remember"
+                       class="w-4 h-4 rounded border-gray-300 focus:ring-gray-900 cursor-pointer"
+                       style="accent-color: #1D1D1F;">
+                <span class="text-sm text-gray-500">ログイン状態を保持</span>
             </label>
-        </div>
-
-        <div class="flex items-center justify-end mt-4">
             @if (Route::has('password.request'))
-                <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" href="{{ route('password.request') }}">
-                    {{ __('Forgot your password?') }}
+                <a href="{{ route('password.request') }}"
+                   class="text-sm text-gray-500 hover:text-gray-900 transition-colors duration-150">
+                    パスワードを忘れた場合
                 </a>
             @endif
-
-            <x-primary-button class="ms-3">
-                {{ __('Log in') }}
-            </x-primary-button>
         </div>
+
+        <x-primary-button class="w-full justify-center mt-2">
+            ログイン
+        </x-primary-button>
     </form>
+
+    <p class="text-center text-sm text-gray-500 mt-6">
+        アカウントをお持ちでない方は
+        <a href="{{ route('register') }}" class="font-medium hover:opacity-70 transition-opacity duration-150" style="color: #1D1D1F;">
+            新規登録
+        </a>
+    </p>
 </x-guest-layout>

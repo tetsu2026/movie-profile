@@ -1,67 +1,92 @@
 <x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            プレビュー
-        </h2>
-    </x-slot>
+    @php
+        $themeColor = $profile->theme_color ?? '#667eea';
+        $hasPopupVideo = $profile && $profile->popupVideo && $profile->popupVideo->status === 'completed';
+    @endphp
 
-    <div class="py-12 px-4">
-        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
-            {{-- ナビゲーションボタン（プレビュー表示中の上に配置） --}}
-            <div class="flex flex-col sm:flex-row gap-3">
-                <a href="{{ route('dashboard.profile.edit') }}"
-                   class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg text-center transition duration-200 shadow-md hover:shadow-lg">
-                    編集ページへ戻る
-                </a>
-                <a href="{{ route('dashboard') }}"
-                   class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg text-center transition duration-200 shadow-md hover:shadow-lg">
-                    ダッシュボードへ戻る
-                </a>
-                <a href="{{ route('users.show', ['id' => Auth::id()]) }}"
-                   class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg text-center transition duration-200 shadow-md hover:shadow-lg">
-                    公開ページを見る
-                </a>
-            </div>
+    <div class="min-h-screen py-8 px-4" style="background-color: #F5F5F7;">
+        <div class="max-w-2xl mx-auto space-y-4">
 
-            {{-- 注意書き --}}
-            <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded" role="alert">
-                <p class="font-bold flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            {{-- プレビューバナー --}}
+            <div class="rounded-2xl px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                 style="background-color: #1D1D1F; color: #ffffff;">
+                <div class="flex items-center gap-2.5">
+                    <svg class="w-4 h-4 flex-shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                     </svg>
-                    プレビュー表示中
-                </p>
-                <p class="mt-1">これは公開ページのプレビューです。他のユーザーには表示されません。</p>
+                    <span class="text-sm font-medium">プレビュー表示中 — 他のユーザーには表示されません</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a href="{{ route('dashboard.profile.edit') }}"
+                       class="text-sm font-medium px-4 py-1.5 rounded-full border border-white/30 hover:border-white/60 transition-colors duration-150 cursor-pointer">
+                        編集に戻る
+                    </a>
+                    <a href="{{ route('users.show', ['id' => Auth::id()]) }}"
+                       target="_blank"
+                       class="text-sm font-medium px-4 py-1.5 rounded-full transition-colors duration-150 cursor-pointer"
+                       style="background-color: #2563EB;">
+                        公開ページを見る
+                    </a>
+                </div>
             </div>
 
-            {{-- プロフィールボックス --}}
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-8">
+            {{-- プロフィールカード --}}
+            <div class="rounded-3xl bg-white p-8 md:p-10 border-2 relative overflow-hidden"
+                 style="border-color: {{ $themeColor }};"
+                 x-data="{
+                     popupOpen: false,
+                     playing: false,
+                     thumbVisible: true,
+                     openPopup() {
+                         this.thumbVisible = false;
+                         // 160ms: コンテンツのフェードアウト(opacity transition 200ms)が始まってから動画を表示
+                         setTimeout(() => {
+                             this.popupOpen = true;
+                             this.$nextTick(() => this.$refs.popupVideo.play());
+                         }, 160);
+                     },
+                     closePopup() {
+                         this.popupOpen = false;
+                         this.$refs.popupVideo.pause();
+                         this.$refs.popupVideo.load();
+                         // 220ms: 動画のフェードアウト(opacity transition 200ms)が完了してからコンテンツを再表示
+                         setTimeout(() => { this.thumbVisible = true; }, 220);
+                     }
+                 }"
+                 @if($hasPopupVideo)
+                     x-on:open-video-modal.window="openPopup()"
+                     x-on:keydown.escape.window="if(popupOpen) closePopup()"
+                 @endif
+            >
+                {{-- 通常コンテンツ: opacity で表示/非表示（高さを維持するため display:none は使わない） --}}
+                <div class="transition-opacity duration-200"
+                     :class="{ 'opacity-0 pointer-events-none': !thumbVisible }">
+
                     {{-- 氏名 --}}
-                    <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                    <h1 class="text-4xl md:text-5xl font-extrabold mb-6"
+                        style="font-family: 'Plus Jakarta Sans', sans-serif; color: #1D1D1F; letter-spacing: -0.02em;">
                         {{ $profile->name ?? 'ユーザー名未設定' }}
                     </h1>
 
-                    {{-- 経歴表示（min-heightで画面下まで表示） --}}
-                    <div class="min-h-[40vh] border-t border-gray-200 pt-4">
+                    {{-- 経歴 --}}
+                    <div class="min-h-[30vh] pt-6 border-t border-gray-100">
                         @if($profile && $profile->biography)
-                            <div class="prose max-w-none">
-                                <p class="text-gray-700 whitespace-pre-wrap leading-relaxed">{{ $profile->biography }}</p>
-                            </div>
+                            <p class="text-gray-600 whitespace-pre-wrap leading-relaxed text-base">{{ $profile->biography }}</p>
                         @else
-                            <p class="text-gray-500 italic">経歴が設定されていません</p>
+                            <p class="text-gray-300 italic text-sm">経歴が設定されていません</p>
                         @endif
                     </div>
 
-                    {{-- サムネイル動画エリア（右寄せ） --}}
-                    <div class="pt-6 mt-6">
+                    {{-- サムネイル動画エリア --}}
+                    <div class="pt-6 mt-6 border-t border-gray-100">
                         <div class="flex justify-end">
-                            {{-- サムネイル動画 --}}
                             @if($profile && $profile->thumbnailVideo && $profile->thumbnailVideo->status === 'completed')
                                 <x-video-thumbnail
                                     :video="$profile->thumbnailVideo"
                                     :popup-video="$profile->popupVideo"
                                     :inline="true"
+                                    :theme-color="$themeColor"
                                 />
                             @else
                                 <x-video-thumbnail-placeholder :inline="true" />
@@ -69,15 +94,18 @@
                         </div>
                     </div>
                 </div>
+
+                {{-- フルカード動画プレーヤー (カード全体を覆う absolute オーバーレイ) --}}
+                @if($hasPopupVideo)
+                    <x-fullcard-video-player
+                        :videoSrc="$profile->popupVideo->encoded_url"
+                        :themeColor="$themeColor"
+                    />
+                @endif
+
             </div>
+
         </div>
     </div>
 
-    {{-- ポップアップ動画モーダル --}}
-    @if($profile && $profile->popupVideo && $profile->popupVideo->status === 'completed')
-        <x-video-modal
-            :video="$profile->popupVideo"
-            :id="$profile->popupVideo->id"
-        />
-    @endif
 </x-app-layout>

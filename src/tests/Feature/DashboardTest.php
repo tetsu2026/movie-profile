@@ -6,12 +6,13 @@ use App\Models\Profile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class DashboardTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function dashboard_page_is_displayed_for_authenticated_users(): void
     {
         $user = User::factory()->create();
@@ -23,7 +24,7 @@ class DashboardTest extends TestCase
         $response->assertViewIs('dashboard');
     }
 
-    /** @test */
+    #[Test]
     public function dashboard_page_redirects_guests_to_login(): void
     {
         $response = $this->get('/dashboard');
@@ -31,7 +32,7 @@ class DashboardTest extends TestCase
         $response->assertRedirect('/login');
     }
 
-    /** @test */
+    #[Test]
     public function dashboard_shows_user_profile_information(): void
     {
         $user = User::factory()->create();

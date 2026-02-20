@@ -7,12 +7,13 @@ use App\Models\User;
 use App\Models\Profile;
 use App\Models\Video;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
 
 class ProfileTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function profile_belongs_to_user(): void
     {
         $user = User::factory()->create();
@@ -22,7 +23,7 @@ class ProfileTest extends TestCase
         $this->assertEquals($user->id, $profile->user->id);
     }
 
-    /** @test */
+    #[Test]
     public function profile_belongs_to_thumbnail_video(): void
     {
         $user = User::factory()->create();
@@ -36,7 +37,7 @@ class ProfileTest extends TestCase
         $this->assertEquals($video->id, $profile->thumbnailVideo->id);
     }
 
-    /** @test */
+    #[Test]
     public function profile_can_be_soft_deleted(): void
     {
         $profile = Profile::factory()->create();
@@ -48,7 +49,7 @@ class ProfileTest extends TestCase
         $this->assertNotNull(Profile::withTrashed()->find($profile->id));
     }
 
-    /** @test */
+    #[Test]
     public function profile_fillable_attributes_work(): void
     {
         $user = User::factory()->create();
@@ -64,7 +65,7 @@ class ProfileTest extends TestCase
         $this->assertFalse($profile->is_public);
     }
 
-    /** @test */
+    #[Test]
     public function profile_casts_is_public_to_boolean(): void
     {
         $profile = Profile::factory()->create(['is_public' => 1]);
@@ -73,7 +74,7 @@ class ProfileTest extends TestCase
         $this->assertIsBool($profile->is_public);
     }
 
-    /** @test */
+    #[Test]
     public function profile_casts_video_order_to_array(): void
     {
         $profile = Profile::factory()->create(['video_order' => [1, 2, 3]]);

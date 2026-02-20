@@ -23,6 +23,7 @@ class Profile extends Model
         'popup_video_id',
         'video_order',
         'is_public',
+        'theme_color',
     ];
 
     /**

@@ -8,6 +8,7 @@ use App\Models\Video;
 use App\Services\VideoEncoderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\Test;
 
 class VideoEncoderServiceTest extends TestCase
 {
@@ -19,7 +20,7 @@ class VideoEncoderServiceTest extends TestCase
         Storage::fake('s3');
     }
 
-    /** @test */
+    #[Test]
     public function encode_with_retry_increments_retry_count_on_failure(): void
     {
         $user = User::factory()->create();
@@ -43,7 +44,7 @@ class VideoEncoderServiceTest extends TestCase
         $this->assertEquals(3, $video->retry_count);
     }
 
-    /** @test */
+    #[Test]
     public function video_status_changes_to_failed_after_max_retries(): void
     {
         $user = User::factory()->create();
@@ -62,7 +63,7 @@ class VideoEncoderServiceTest extends TestCase
         $this->assertEquals('failed', $video->status);
     }
 
-    /** @test */
+    #[Test]
     public function error_message_is_saved_on_failure(): void
     {
         $user = User::factory()->create();

@@ -9,6 +9,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 class VideoControllerTest extends TestCase
 {
@@ -20,7 +21,7 @@ class VideoControllerTest extends TestCase
         Storage::fake('s3');
     }
 
-    /** @test */
+    #[Test]
     public function video_upload_page_can_be_displayed(): void
     {
         $user = User::factory()->create();
@@ -32,7 +33,7 @@ class VideoControllerTest extends TestCase
         $response->assertViewIs('videos.create');
     }
 
-    /** @test */
+    #[Test]
     public function video_upload_page_redirects_guests_to_login(): void
     {
         $response = $this->get('/dashboard/videos/upload');
@@ -40,7 +41,7 @@ class VideoControllerTest extends TestCase
         $response->assertRedirect('/login');
     }
 
-    /** @test */
+    #[Test]
     public function video_index_page_can_be_displayed(): void
     {
         $user = User::factory()->create();
@@ -52,7 +53,7 @@ class VideoControllerTest extends TestCase
         $response->assertViewIs('videos.index');
     }
 
-    /** @test */
+    #[Test]
     public function video_index_shows_user_videos(): void
     {
         $user = User::factory()->create();
@@ -66,7 +67,7 @@ class VideoControllerTest extends TestCase
         $this->assertCount(3, $response->viewData('videos'));
     }
 
-    /** @test */
+    #[Test]
     public function video_index_does_not_show_other_users_videos(): void
     {
         $user = User::factory()->create();
@@ -81,7 +82,7 @@ class VideoControllerTest extends TestCase
         $this->assertCount(2, $response->viewData('videos'));
     }
 
-    /** @test */
+    #[Test]
     public function video_can_be_deleted(): void
     {
         $user = User::factory()->create();
@@ -95,7 +96,7 @@ class VideoControllerTest extends TestCase
         $this->assertSoftDeleted('videos', ['id' => $video->id]);
     }
 
-    /** @test */
+    #[Test]
     public function video_deletion_is_forbidden_for_other_users_videos(): void
     {
         $user = User::factory()->create();
@@ -109,7 +110,7 @@ class VideoControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
-    /** @test */
+    #[Test]
     public function video_in_use_by_profile_cannot_be_deleted(): void
     {
         $user = User::factory()->create();
@@ -126,7 +127,7 @@ class VideoControllerTest extends TestCase
         $this->assertDatabaseHas('videos', ['id' => $video->id]);
     }
 
-    /** @test */
+    #[Test]
     public function video_upload_requires_video_file(): void
     {
         $user = User::factory()->create();
@@ -139,7 +140,7 @@ class VideoControllerTest extends TestCase
         $response->assertSessionHasErrors('video');
     }
 
-    /** @test */
+    #[Test]
     public function video_upload_rejects_invalid_mime_type(): void
     {
         $user = User::factory()->create();
@@ -153,7 +154,7 @@ class VideoControllerTest extends TestCase
         $response->assertSessionHasErrors('video');
     }
 
-    /** @test */
+    #[Test]
     public function video_upload_rejects_oversized_files(): void
     {
         $user = User::factory()->create();

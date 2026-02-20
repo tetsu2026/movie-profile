@@ -7,12 +7,13 @@ use App\Models\User;
 use App\Models\Profile;
 use App\Models\Video;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
 
 class UserTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
+    #[Test]
     public function user_has_one_profile(): void
     {
         $user = User::factory()->create();
@@ -22,7 +23,7 @@ class UserTest extends TestCase
         $this->assertEquals($profile->id, $user->profile->id);
     }
 
-    /** @test */
+    #[Test]
     public function user_has_many_videos(): void
     {
         $user = User::factory()->create();
@@ -32,7 +33,7 @@ class UserTest extends TestCase
         $this->assertInstanceOf(Video::class, $user->videos->first());
     }
 
-    /** @test */
+    #[Test]
     public function user_can_be_soft_deleted(): void
     {
         $user = User::factory()->create();
@@ -44,7 +45,7 @@ class UserTest extends TestCase
         $this->assertNotNull(User::withTrashed()->find($user->id));
     }
 
-    /** @test */
+    #[Test]
     public function user_has_default_role_as_user(): void
     {
         $user = User::factory()->create();
@@ -52,7 +53,7 @@ class UserTest extends TestCase
         $this->assertEquals('user', $user->role);
     }
 
-    /** @test */
+    #[Test]
     public function user_can_be_admin(): void
     {
         $user = User::factory()->admin()->create();
@@ -60,7 +61,7 @@ class UserTest extends TestCase
         $this->assertEquals('admin', $user->role);
     }
 
-    /** @test */
+    #[Test]
     public function user_fillable_attributes_work(): void
     {
         $user = User::factory()->create([

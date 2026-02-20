@@ -16,8 +16,8 @@ NC='\033[0m' # No Color
 # 設定
 APP_DIR="/var/www/movie-prf"
 APP_USER="nginx"
-REPO_URL="git@github.com:YOUR_USERNAME/movie-prf.git"
-BRANCH="main"
+REPO_URL="git@github.com:tetsu2026/movie-profile.git"
+BRANCH="master"
 
 # ログ出力関数
 log_info() {
@@ -138,9 +138,18 @@ update_app() {
     log_step "1/7: ディレクトリ移動"
     cd "$APP_DIR"
 
+    # .gitがない場合はリポジトリを復元してからアップデートを続行
     if [[ ! -d ".git" ]]; then
-        log_error "Gitリポジトリが見つかりません。--setupオプションで初期化してください。"
-        exit 1
+        log_warn ".gitが見つかりません。Gitリポジトリを復元します..."
+        # git操作のため一時的にec2-userへ所有権変更（終了時にnginxへ戻す）
+        sudo chown -R "$USER":"$USER" "$APP_DIR"
+        mkdir -p ~/.ssh
+        ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+        git init
+        git remote add origin "$REPO_URL"
+        git fetch origin "$BRANCH"
+        git reset --hard "origin/$BRANCH"
+        log_info "Gitリポジトリの復元完了"
     fi
 
     log_step "2/7: メンテナンスモード開始"
@@ -166,14 +175,14 @@ update_app() {
     php artisan view:cache
     php artisan optimize
 
+    # メンテナンスモード終了（chownより前に実行。chown後はec2-userでunlinkできなくなるため）
+    php artisan up
+
     # 権限再設定
     sudo chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
     sudo chmod -R 755 "$APP_DIR"
     sudo chmod -R 775 "$APP_DIR/storage"
     sudo chmod -R 775 "$APP_DIR/bootstrap/cache"
-
-    # メンテナンスモード終了
-    php artisan up
 
     log_info "アプリケーション更新完了！"
 }

@@ -80,7 +80,7 @@ class UserController extends Controller
      */
     public function destroy(int $id): RedirectResponse
     {
-        $user = User::findOrFail($id);
+        $user = User::with('videos')->findOrFail($id);
 
         // S3から全動画ファイルを削除
         foreach ($user->videos as $video) {

@@ -1,13 +1,16 @@
 # アーキテクチャ設計書
 
 ## 技術スタック
-- **フロントエンド**: Blade (Laravel標準テンプレートエンジン) + Tailwind CSS
+- **フロントエンド**: Blade (Laravel標準テンプレートエンジン) + Tailwind CSS + Alpine.js
+- **ビルドツール**: Vite
 - **バックエンド**: Laravel 11.x + PHP 8.2
 - **データベース**: MySQL 8.0
 - **認証**: Laravel Breeze (標準認証パッケージ)
 - **インフラ**: AWS (EC2 + S3 + RDS) + CloudFormation
 - **ローカル開発環境**: Docker + Docker Compose
 - **動画処理**: FFmpeg
+- **ライブラリ**: getID3（動画メタデータ取得）, @tailwindcss/forms（フォームスタイル）
+- **テスト**: Pest（ユニット/フィーチャーテスト）, Playwright（E2Eテスト）
 - **その他**: CloudWatch (監視・ログ)
 
 ## システム構成図
@@ -65,10 +68,12 @@ graph TB
 ## 選択理由
 
 ### フロントエンド
-- **Blade + Tailwind CSS**:
+- **Blade + Tailwind CSS + Alpine.js**:
   - Laravelの標準テンプレートエンジンで学習コストが低い
   - シンプルなUIのため、フロントエンドフレームワーク（React/Vue）は不要
   - Tailwind CSSでレスポンシブデザインを効率的に実装
+  - Alpine.jsで動画プレーヤーやモーダルなどの軽量なインタラクションを実装
+  - Viteによる高速なアセットビルド
   - 個人開発のため、複雑なSPAは避けシンプルな構成に
 
 ### バックエンド
@@ -150,6 +155,22 @@ graph TB
 - 月額目標$30以下を達成可能
 - 開発中はEC2/RDSを停止してコスト削減
 - 無料利用枠（初年度）があればさらに削減可能
+
+## セキュリティ基盤
+
+### SecurityHeadersMiddleware
+全HTTPレスポンスに以下のセキュリティヘッダーを自動付与するカスタムミドルウェアを実装:
+
+| ヘッダー | 値 | 目的 |
+|---------|-----|------|
+| X-XSS-Protection | 1; mode=block | XSS攻撃のブラウザ側検出・ブロック |
+| X-Content-Type-Options | nosniff | MIMEタイプスニッフィングの防止 |
+| X-Frame-Options | SAMEORIGIN | クリックジャッキングの防止 |
+| Referrer-Policy | strict-origin-when-cross-origin | リファラー情報の制御 |
+| Permissions-Policy | camera=(), microphone=(), geolocation() | ブラウザ機能へのアクセス制限 |
+| Strict-Transport-Security | max-age=31536000; includeSubDomains | HTTPS通信の強制（HTTPS使用時のみ） |
+
+---
 
 ## 将来の拡張性
 

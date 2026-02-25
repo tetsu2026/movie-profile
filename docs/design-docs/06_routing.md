@@ -69,19 +69,78 @@
 
 ---
 
+### Breezeアカウント設定（認証必須）
+
+#### GET /profile (profile.edit)
+**Controller**: ProfileController@edit
+**Middleware**: auth
+**説明**: Breezeアカウント設定画面（メールアドレス変更、パスワード変更、アカウント削除）
+**成功時**: アカウント設定フォームのビューを返却
+**失敗時**: 未認証の場合はログインページへリダイレクト
+
+---
+
+#### PATCH /profile (profile.update)
+**Controller**: ProfileController@update
+**Middleware**: auth
+**説明**: アカウント情報（名前・メールアドレス）の更新処理
+**成功時**: アカウント情報更新 → 成功メッセージ → アカウント設定ページへリダイレクト
+**失敗時**: バリデーションエラーをセッションに格納してアカウント設定ページへリダイレクト
+
+---
+
+#### DELETE /profile (profile.destroy)
+**Controller**: ProfileController@destroy
+**Middleware**: auth
+**説明**: アカウント削除処理
+**成功時**: ユーザーアカウント削除 → トップページへリダイレクト
+**失敗時**: パスワード確認失敗時はエラーメッセージ表示
+
+---
+
+### パスワードリセット（Laravel Breeze標準）
+
+#### GET /forgot-password (password.request)
+**Controller**: Auth\PasswordResetLinkController@create
+**Middleware**: guest
+**説明**: パスワードリセットリンク入力フォーム表示
+
+---
+
+#### POST /forgot-password (password.email)
+**Controller**: Auth\PasswordResetLinkController@store
+**Middleware**: guest
+**説明**: パスワードリセットメール送信処理
+
+---
+
+#### GET /reset-password/{token} (password.reset)
+**Controller**: Auth\NewPasswordController@create
+**Middleware**: guest
+**説明**: 新パスワード入力フォーム表示
+
+---
+
+#### POST /reset-password (password.store)
+**Controller**: Auth\NewPasswordController@store
+**Middleware**: guest
+**説明**: 新パスワード保存処理
+
+---
+
 ### 一般ユーザーページ（認証必須）
 
 #### GET /dashboard (dashboard)
 **Controller**: DashboardController@index
-**Middleware**: auth
+**Middleware**: auth, verified
 **説明**: ダッシュボード表示（プロフィール状態、各機能へのリンク）
 **成功時**: ダッシュボードのビューを返却（プロフィール情報、動画数）
 **失敗時**: 未認証の場合はログインページへリダイレクト
 
 ---
 
-#### GET /dashboard/profile/edit (profile.edit)
-**Controller**: ProfileController@edit
+#### GET /dashboard/profile/edit (dashboard.profile.edit)
+**Controller**: Dashboard\ProfileController@edit
 **Middleware**: auth
 **説明**: プロフィール編集フォーム表示
 **成功時**: 編集フォームのビューを返却（現在のプロフィール情報、動画リスト）
@@ -89,8 +148,8 @@
 
 ---
 
-#### PUT /dashboard/profile (profile.update)
-**Controller**: ProfileController@update
+#### PUT /dashboard/profile (dashboard.profile.update)
+**Controller**: Dashboard\ProfileController@update
 **Middleware**: auth
 **説明**: プロフィール更新処理
 **成功時**: プロフィール更新 → 成功メッセージ → ダッシュボードへリダイレクト
@@ -316,49 +375,56 @@ return redirect()->route('videos.index')
 ```php
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\HomeController;
-use App\Http\Controllers\PublicProfileController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\VideoController;
-use App\Http\Controllers\PreviewController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Dashboard\ProfileController as DashboardProfileController;
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\PreviewController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PublicProfileController;
+use App\Http\Controllers\VideoController;
+use Illuminate\Support\Facades\Route;
 
 // ===== 公開ページ（認証不要） =====
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/users/{id}', [PublicProfileController::class, 'show'])->name('users.show');
 
-// ===== 認証ページ（Laravel Breeze標準） =====
-require __DIR__.'/auth.php'; // Breezeが提供する認証ルート
+// ===== ダッシュボード（認証 + メール認証必須） =====
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
 
 // ===== 一般ユーザーページ（認証必須） =====
 Route::middleware('auth')->group(function () {
-    // ダッシュボード
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    // Breezeアカウント設定
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    // プロフィール編集
-    Route::get('/dashboard/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::put('/dashboard/profile', [ProfileController::class, 'update'])->name('profile.update');
+    // プロフィール情報編集（Dashboard\ProfileController）
+    Route::get('/dashboard/profile/edit', [DashboardProfileController::class, 'edit'])->name('dashboard.profile.edit');
+    Route::put('/dashboard/profile', [DashboardProfileController::class, 'update'])->name('dashboard.profile.update');
+
+    // プレビュー
+    Route::get('/dashboard/preview', [PreviewController::class, 'show'])->name('preview');
 
     // 動画管理
     Route::get('/dashboard/videos', [VideoController::class, 'index'])->name('videos.index');
     Route::get('/dashboard/videos/upload', [VideoController::class, 'create'])->name('videos.create');
     Route::post('/dashboard/videos', [VideoController::class, 'store'])->name('videos.store');
     Route::delete('/dashboard/videos/{id}', [VideoController::class, 'destroy'])->name('videos.destroy');
-
-    // プレビュー
-    Route::get('/dashboard/preview', [PreviewController::class, 'show'])->name('preview');
 });
 
 // ===== 管理者専用ページ（管理者のみ） =====
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
-    // ユーザー管理
     Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
     Route::get('/users/{id}/edit', [AdminUserController::class, 'edit'])->name('users.edit');
     Route::put('/users/{id}', [AdminUserController::class, 'update'])->name('users.update');
     Route::delete('/users/{id}', [AdminUserController::class, 'destroy'])->name('users.destroy');
 });
+
+// ===== 認証ページ（Laravel Breeze標準 — パスワードリセット含む） =====
+require __DIR__.'/auth.php';
 ```
 
 ---
@@ -382,7 +448,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 - Bladeテンプレートで `@csrf` ディレクティブを使用
 
 ### Phase 2での拡張予定
-- パスワードリセット: `/password/reset` ルート追加
 - 公開/非公開切り替え: `PUT /dashboard/profile/visibility` 追加
 - アクセス解析: `GET /dashboard/analytics` 追加
 - 独自ドメイン設定: `PUT /dashboard/domain` 追加
+
+**注記**: パスワードリセット機能はLaravel Breeze標準として実装済み（`/forgot-password`, `/reset-password/{token}`）

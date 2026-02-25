@@ -5,7 +5,7 @@
 | 画面名 | URL | 入力項目数 | 遷移先 |
 |--------|-----|------------|--------|
 | トップページ | GET / | なし | ログイン/登録 |
-| ユーザー登録 | POST /register | 3項目 | ダッシュボード |
+| ユーザー登録 | POST /register | 4項目 | ダッシュボード |
 | ログイン | POST /login | 3項目 | ダッシュボード |
 | ダッシュボード | GET /dashboard | なし | 各機能へ |
 | プロフィール編集 | PUT /dashboard/profile | 5項目 | ダッシュボード |
@@ -26,6 +26,7 @@
 
 | 項目名 | フィールド名 | 型 | 必須 | 制約 |
 |--------|-------------|-----|------|------|
+| 名前 | name | text | ○ | 255文字以内 |
 | メールアドレス | email | text | ○ | メール形式、一意性 |
 | パスワード | password | password | ○ | 8文字以上 |
 | パスワード確認 | password_confirmation | password | ○ | passwordと一致 |
@@ -33,12 +34,15 @@
 #### バリデーションルール
 ```php
 [
+    'name' => 'required|string|max:255',
     'email' => 'required|email|max:255|unique:users,email',
     'password' => 'required|string|min:8|confirmed',
 ]
 ```
 
 #### エラーメッセージ
+- **name required**: 名前は必須です
+- **name max**: 名前は255文字以内で入力してください
 - **email required**: メールアドレスは必須です
 - **email email**: 有効なメールアドレス形式で入力してください
 - **email unique**: このメールアドレスは既に登録されています
@@ -99,9 +103,9 @@
 | 経歴 | biography | textarea | × | 1000文字以内 |
 | サムネイル用動画 | thumbnail_video_id | select | × | 自分の動画IDのみ選択可 |
 | ポップアップ用動画 | popup_video_id | select | × | 自分の動画IDのみ選択可 |
-| テーマカラー | theme_color | hidden（プリセット選択UI） | ○ | HEX形式（#RRGGBB）、プリセット6色から選択 |
+| テーマカラー | theme_color | hidden（プリセット選択UI） | ○ | HEX形式（#RRGGBB）、プリセット8色から選択 |
 
-**テーマカラープリセット**: インディゴ(`#667eea`)・エメラルド(`#059669`)・パープル(`#a855f7`)・オレンジ(`#f97316`)・ブラック(`#1D1D1F`)など
+**テーマカラープリセット（8色）**: インディゴ(`#667eea`)・ローズ(`#f5576c`)・スカイ(`#4facfe`)・ブルー(`#2563EB`)・エメラルド(`#059669`)・パープル(`#a855f7`)・オレンジ(`#f97316`)・ブラック(`#1D1D1F`)
 
 #### バリデーションルール
 ```php

@@ -458,15 +458,15 @@ Claude がコードを提案する際は、以下の統一性を確認してく�
 
 | ドキュメント | パス | 内容 |
 |------------|------|------|
-| 要件定義書 | `docs/01_requirements.md` | プロジェクト概要、機能要件、非機能要件 |
-| アーキテクチャ設計 | `docs/02_architecture.md` | 技術スタック、システム構成、コスト試算 |
-| データベース設計 | `docs/03_database.md` | テーブル定義、ER図、インデックス設計 |
-| サイトマップ | `docs/04_sitemap.md` | ページ構成、ユーザーフロー |
-| データフロー | `docs/05_data_flow.md` | データの流れ、処理フロー |
-| ルーティング | `docs/06_routing.md` | URL設計、エンドポイント一覧 |
-| 画面設計 | `docs/07_screen_design.md` | UI/UXデザイン仕様 |
-| ステートマシン | `docs/08_state_machine_video.md` | 動画エンコード状態遷移 |
-| ER図 | `docs/09_er.md` | データベースER図 |
+| 要件定義書 | `docs/requirements/01_requirements.md` | プロジェクト概要、機能要件、非機能要件 |
+| アーキテクチャ設計 | `docs/design-docs/02_architecture.md` | 技術スタック、システム構成、コスト試算 |
+| データベース設計 | `docs/design-docs/03_database.md` | テーブル定義、ER図、インデックス設計 |
+| サイトマップ | `docs/design-docs/04_sitemap.md` | ページ構成、ユーザーフロー |
+| データフロー | `docs/design-docs/05_data_flow.md` | データの流れ、処理フロー |
+| ルーティング | `docs/design-docs/06_routing.md` | URL設計、エンドポイント一覧 |
+| 画面設計 | `docs/design-docs/07_screen_design.md` | UI/UXデザイン仕様 |
+| ステートマシン | `docs/design-docs/08_state_machine_video.md` | 動画エンコード状態遷移 |
+| ER図 | `docs/design-docs/09_er.md` | データベースER図 |
 
 **重要**: 新機能実装やDB変更時は、必ず設計書を確認してください。
 

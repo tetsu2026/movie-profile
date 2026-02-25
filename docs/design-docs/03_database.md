@@ -12,6 +12,7 @@
 ```sql
 CREATE TABLE users (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL COMMENT 'ユーザー名（Laravel Breeze標準）',
     email VARCHAR(255) NOT NULL UNIQUE COMMENT 'メールアドレス',
     password VARCHAR(255) NOT NULL COMMENT 'ハッシュ化パスワード',
     role ENUM('admin', 'user') DEFAULT 'user' NOT NULL COMMENT 'ユーザー権限',
@@ -28,6 +29,7 @@ CREATE TABLE users (
 
 **カラム説明**:
 - `id`: ユーザーID（主キー）
+- `name`: ユーザー名（Laravel Breeze標準のユーザー名フィールド）
 - `email`: ログイン用メールアドレス
 - `password`: bcryptでハッシュ化されたパスワード
 - `role`: 権限（admin: 管理者, user: 一般ユーザー）
@@ -86,11 +88,14 @@ CREATE TABLE videos (
     status ENUM('uploading', 'encoding', 'completed', 'failed') DEFAULT 'uploading' NOT NULL COMMENT 'エンコード状態',
     error_message TEXT NULL COMMENT 'エンコード失敗時のエラー内容',
     retry_count TINYINT UNSIGNED DEFAULT 0 COMMENT 'エンコードリトライ回数',
+    thumbnail_path VARCHAR(500) NULL COMMENT 'サムネイル画像パス',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '作成日時',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新日時',
+    deleted_at TIMESTAMP NULL COMMENT '論理削除日時',
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     INDEX idx_user_id (user_id),
-    INDEX idx_status (status)
+    INDEX idx_status (status),
+    INDEX idx_deleted_at (deleted_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='動画管理';
 ```
 
@@ -109,6 +114,8 @@ CREATE TABLE videos (
   - `failed`: エンコード失敗
 - `error_message`: エンコード失敗時のエラー詳細
 - `retry_count`: エンコードリトライ回数（最大3回）
+- `thumbnail_path`: 動画のサムネイル画像パス（任意）
+- `deleted_at`: ソフトデリート用（Laravel SoftDeletesトレイト）
 
 ## リレーション
 
@@ -136,6 +143,7 @@ erDiagram
 
     users {
         bigint id PK
+        string name
         string email UK
         string password
         enum role
@@ -169,8 +177,10 @@ erDiagram
         enum status
         text error_message
         int retry_count
+        string thumbnail_path
         timestamp created_at
         timestamp updated_at
+        timestamp deleted_at
     }
 ```
 
@@ -193,6 +203,7 @@ erDiagram
 - `PRIMARY KEY (id)`: 主キー
 - `INDEX (user_id)`: ユーザーの動画一覧取得の高速化
 - `INDEX (status)`: エンコードキュー処理の絞り込み
+- `INDEX (deleted_at)`: ソフトデリート除外クエリの最適化
 
 ## データ削除ポリシー
 
@@ -216,6 +227,12 @@ erDiagram
 ### タイムスタンプ
 - Laravelの規約に従い `created_at`, `updated_at` を使用
 - `deleted_at` はソフトデリート用（Laravel SoftDeletesトレイト）
+
+### ソフトデリート
+- users, profiles, videos の全3テーブルでソフトデリート（`deleted_at`）を使用
+- Laravel SoftDeletesトレイトにより、`delete()` 時に `deleted_at` にタイムスタンプが記録される
+- 通常のクエリではソフトデリート済みレコードは自動的に除外される
+- ユーザー削除後30日間はデータ保持、バッチ処理で物理削除
 
 ### 将来の拡張
 - **sessionsテーブル**: セッション管理をDBに移行する場合

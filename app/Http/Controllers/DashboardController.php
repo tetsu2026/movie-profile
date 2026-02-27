@@ -16,19 +16,7 @@ class DashboardController extends Controller
         $user = $request->user();
         $profile = $user->profile;
 
-        // 動画数のカウント（ステータス別）- 1クエリで全て取得
-        $statusCounts = $user->videos()
-            ->select('status', DB::raw('count(*) as count'))
-            ->groupBy('status')
-            ->pluck('count', 'status')
-            ->toArray();
-
-        $videoStats = [
-            'total' => array_sum($statusCounts),
-            'completed' => $statusCounts['completed'] ?? 0,
-            'encoding' => $statusCounts['encoding'] ?? 0,
-            'failed' => $statusCounts['failed'] ?? 0,
-        ];
+        $videoStats = $this->getVideoStats($user);
 
         // プロフィール完成度
         $completionStatus = [
@@ -42,5 +30,33 @@ class DashboardController extends Controller
             'videoStats' => $videoStats,
             'completionStatus' => $completionStatus,
         ]);
+    }
+
+    /**
+     * 動画統計をJSON形式で返す（ポーリング用）
+     */
+    public function videoStats(Request $request)
+    {
+        $user = $request->user();
+        return response()->json($this->getVideoStats($user));
+    }
+
+    /**
+     * 動画数のカウント（ステータス別）
+     */
+    private function getVideoStats($user): array
+    {
+        $statusCounts = $user->videos()
+            ->select('status', DB::raw('count(*) as count'))
+            ->groupBy('status')
+            ->pluck('count', 'status')
+            ->toArray();
+
+        return [
+            'total' => array_sum($statusCounts),
+            'completed' => $statusCounts['completed'] ?? 0,
+            'encoding' => $statusCounts['encoding'] ?? 0,
+            'failed' => $statusCounts['failed'] ?? 0,
+        ];
     }
 }

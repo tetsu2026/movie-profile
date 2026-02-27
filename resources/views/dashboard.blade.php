@@ -139,39 +139,78 @@
                 </ul>
             </div>
 
-            {{-- 動画統計 --}}
-            <div class="rounded-2xl p-6 bg-white border border-gray-100">
+            {{-- 動画統計（Alpine.jsでポーリング自動更新） --}}
+            <div class="rounded-2xl p-6 bg-white border border-gray-100"
+                 x-data="{
+                    stats: {
+                        total: {{ $videoStats['total'] }},
+                        completed: {{ $videoStats['completed'] }},
+                        encoding: {{ $videoStats['encoding'] }},
+                        failed: {{ $videoStats['failed'] }}
+                    },
+                    timer: null,
+                    init() {
+                        if (this.stats.encoding > 0) {
+                            this.startPolling();
+                        }
+                    },
+                    startPolling() {
+                        this.timer = setInterval(() => this.fetchStats(), 5000);
+                    },
+                    stopPolling() {
+                        if (this.timer) {
+                            clearInterval(this.timer);
+                            this.timer = null;
+                        }
+                    },
+                    async fetchStats() {
+                        try {
+                            const res = await fetch('{{ route('dashboard.video-stats') }}', {
+                                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                            });
+                            if (res.ok) {
+                                this.stats = await res.json();
+                                if (this.stats.encoding === 0) {
+                                    this.stopPolling();
+                                }
+                            }
+                        } catch (e) {}
+                    },
+                    destroy() {
+                        this.stopPolling();
+                    }
+                 }">
                 <p class="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-4">Videos</p>
                 <h2 class="text-base font-bold mb-4" style="color: #1D1D1F;">動画アップロード状況</h2>
                 <div class="grid grid-cols-2 gap-3">
                     <div class="rounded-xl p-4 text-center" style="background-color: #F5F5F7;">
-                        <p class="text-3xl font-extrabold" style="color: #1D1D1F; letter-spacing: -0.04em;">{{ $videoStats['total'] }}</p>
+                        <p class="text-3xl font-extrabold" style="color: #1D1D1F; letter-spacing: -0.04em;" x-text="stats.total"></p>
                         <p class="text-xs text-gray-500 mt-1">合計</p>
                     </div>
                     <div class="rounded-xl p-4 text-center" style="background-color: #F0FDF4;">
-                        <p class="text-3xl font-extrabold" style="color: #16A34A; letter-spacing: -0.04em;">{{ $videoStats['completed'] }}</p>
+                        <p class="text-3xl font-extrabold" style="color: #16A34A; letter-spacing: -0.04em;" x-text="stats.completed"></p>
                         <p class="text-xs text-gray-500 mt-1">使用可能</p>
                     </div>
                     <div class="rounded-xl p-4 text-center" style="background-color: #FFFBEB;">
-                        <p class="text-3xl font-extrabold" style="color: #D97706; letter-spacing: -0.04em;">{{ $videoStats['encoding'] }}</p>
+                        <p class="text-3xl font-extrabold" style="color: #D97706; letter-spacing: -0.04em;" x-text="stats.encoding"></p>
                         <p class="text-xs text-gray-500 mt-1">エンコード中</p>
                     </div>
                     <div class="rounded-xl p-4 text-center" style="background-color: #FFF1F2;">
-                        <p class="text-3xl font-extrabold" style="color: #DC2626; letter-spacing: -0.04em;">{{ $videoStats['failed'] }}</p>
+                        <p class="text-3xl font-extrabold" style="color: #DC2626; letter-spacing: -0.04em;" x-text="stats.failed"></p>
                         <p class="text-xs text-gray-500 mt-1">失敗</p>
                     </div>
                 </div>
 
-                @if($videoStats['encoding'] > 0)
+                <template x-if="stats.encoding > 0">
                     <div class="mt-4 rounded-xl px-4 py-3 text-sm" style="background-color: #FFFBEB; color: #92400E;">
-                        <strong>{{ $videoStats['encoding'] }}本</strong>の動画がエンコード中です。完了までお待ちください。
+                        <strong x-text="stats.encoding + '本'"></strong>の動画がエンコード中です。完了までお待ちください。
                     </div>
-                @endif
-                @if($videoStats['failed'] > 0)
+                </template>
+                <template x-if="stats.failed > 0">
                     <div class="mt-4 rounded-xl px-4 py-3 text-sm" style="background-color: #FFF1F2; color: #991B1B;">
-                        <strong>{{ $videoStats['failed'] }}本</strong>の動画のエンコードに失敗しました。
+                        <strong x-text="stats.failed + '本'"></strong>の動画のエンコードに失敗しました。
                     </div>
-                @endif
+                </template>
             </div>
         </div>
 

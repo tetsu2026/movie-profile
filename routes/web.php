@@ -20,6 +20,9 @@ Route::get('/users/{id}', [PublicProfileController::class, 'show'])->name('users
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
+Route::get('/dashboard/video-stats', [DashboardController::class, 'videoStats'])
+    ->middleware(['auth'])
+    ->name('dashboard.video-stats');
 
 Route::middleware('auth')->group(function () {
     // アカウント設定（Breeze）

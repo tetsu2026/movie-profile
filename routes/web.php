@@ -39,6 +39,7 @@ Route::middleware('auth')->group(function () {
 
     // 動画管理
     Route::get('/dashboard/videos', [VideoController::class, 'index'])->name('videos.index');
+    Route::get('/dashboard/videos/statuses', [VideoController::class, 'statuses'])->name('videos.statuses');
     Route::get('/dashboard/videos/upload', [VideoController::class, 'create'])->name('videos.create');
     Route::post('/dashboard/videos', [VideoController::class, 'store'])->name('videos.store');
     Route::delete('/dashboard/videos/{id}', [VideoController::class, 'destroy'])->name('videos.destroy');

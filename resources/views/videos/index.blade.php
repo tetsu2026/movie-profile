@@ -46,7 +46,59 @@
 
         {{-- 動画一覧 --}}
         @if($videos->count() > 0)
-            <div class="rounded-2xl bg-white border border-gray-100 overflow-hidden">
+            @php
+                $hasEncoding = $videos->contains(fn ($v) => in_array($v->status, ['uploading', 'encoding']));
+            @endphp
+            <div class="rounded-2xl bg-white border border-gray-100 overflow-hidden"
+                 x-data="{
+                    statuses: {
+                        @foreach($videos as $video)
+                            {{ $video->id }}: { status: '{{ $video->status }}', retry_count: {{ $video->retry_count ?? 0 }}, error_message: '{{ addslashes($video->error_message ?? '') }}' },
+                        @endforeach
+                    },
+                    timer: null,
+                    init() {
+                        if ({{ $hasEncoding ? 'true' : 'false' }}) {
+                            this.startPolling();
+                        }
+                    },
+                    startPolling() {
+                        this.timer = setInterval(() => this.fetchStatuses(), 5000);
+                    },
+                    stopPolling() {
+                        if (this.timer) {
+                            clearInterval(this.timer);
+                            this.timer = null;
+                        }
+                    },
+                    async fetchStatuses() {
+                        try {
+                            const res = await fetch('{{ route('videos.statuses') }}', {
+                                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                            });
+                            if (res.ok) {
+                                const videos = await res.json();
+                                let hasEncoding = false;
+                                videos.forEach(v => {
+                                    this.statuses[v.id] = {
+                                        status: v.status,
+                                        retry_count: v.retry_count ?? 0,
+                                        error_message: v.error_message ?? ''
+                                    };
+                                    if (v.status === 'uploading' || v.status === 'encoding') {
+                                        hasEncoding = true;
+                                    }
+                                });
+                                if (!hasEncoding) {
+                                    this.stopPolling();
+                                }
+                            }
+                        } catch (e) {}
+                    },
+                    destroy() {
+                        this.stopPolling();
+                    }
+                 }">
                 <div class="overflow-x-auto">
                     <table class="min-w-full">
                         <thead>
@@ -65,31 +117,34 @@
                                         <p class="text-sm font-medium" style="color: #1D1D1F;">{{ $video->original_filename }}</p>
                                     </td>
                                     <td class="px-6 py-4">
-                                        @if($video->status === 'uploading')
+                                        <template x-if="statuses[{{ $video->id }}]?.status === 'uploading'">
                                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color: #EFF6FF; color: #1D4ED8;">
                                                 アップロード中
                                             </span>
-                                        @elseif($video->status === 'encoding')
+                                        </template>
+                                        <template x-if="statuses[{{ $video->id }}]?.status === 'encoding'">
                                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color: #FFFBEB; color: #B45309;">
-                                                エンコード中 ({{ $video->retry_count + 1 }}/3)
+                                                エンコード中
                                             </span>
-                                        @elseif($video->status === 'completed')
+                                        </template>
+                                        <template x-if="statuses[{{ $video->id }}]?.status === 'completed'">
                                             <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color: #F0FDF4; color: #15803D;">
                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
                                                 </svg>
                                                 完了
                                             </span>
-                                        @elseif($video->status === 'failed')
+                                        </template>
+                                        <template x-if="statuses[{{ $video->id }}]?.status === 'failed'">
                                             <div>
                                                 <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color: #FFF1F2; color: #B91C1C;">
                                                     エンコード失敗
                                                 </span>
-                                                @if($video->error_message)
-                                                    <p class="text-xs text-gray-400 mt-1.5">{{ Str::limit($video->error_message, 80) }}</p>
-                                                @endif
+                                                <p x-show="statuses[{{ $video->id }}]?.error_message"
+                                                   x-text="statuses[{{ $video->id }}]?.error_message?.substring(0, 80)"
+                                                   class="text-xs text-gray-400 mt-1.5"></p>
                                             </div>
-                                        @endif
+                                        </template>
                                     </td>
                                     <td class="px-6 py-4 text-sm text-gray-400 whitespace-nowrap">
                                         {{ $video->created_at->format('Y/m/d H:i') }}

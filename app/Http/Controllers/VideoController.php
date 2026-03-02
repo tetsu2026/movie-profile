@@ -6,6 +6,7 @@ use App\Http\Requests\StoreVideoRequest;
 use App\Models\Profile;
 use App\Models\Video;
 use App\Services\VideoEncoderService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -98,6 +99,25 @@ class VideoController extends Controller
             'thumbnailVideoId' => $thumbnailVideoId,
             'popupVideoId' => $popupVideoId,
         ]);
+    }
+
+    /**
+     * 動画ステータス一覧をJSON形式で返す（ポーリング用）
+     */
+    public function statuses(Request $request): JsonResponse
+    {
+        $videos = $request->user()
+            ->videos()
+            ->select('id', 'status', 'retry_count', 'error_message')
+            ->get()
+            ->map(fn ($video) => [
+                'id' => $video->id,
+                'status' => $video->status,
+                'retry_count' => $video->retry_count,
+                'error_message' => $video->error_message,
+            ]);
+
+        return response()->json($videos);
     }
 
     /**

@@ -92,8 +92,10 @@ class VideoEncoderService
 
             if (!$process->isSuccessful()) {
                 // FFmpegエラーを取得
-                $errorOutput = $process->getErrorOutput();
-                throw new \Exception("FFmpegエラー: {$errorOutput}");
+                $errorOutput = $process->getErrorOutput() ?: $process->getOutput();
+                $exitCode = $process->getExitCode();
+                $commandLine = $process->getCommandLine();
+                throw new \Exception("FFmpegエラー (exit code: {$exitCode}): {$errorOutput} [command: {$commandLine}]");
             }
 
             // エンコード済み動画をS3にアップロード

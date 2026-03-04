@@ -8,25 +8,7 @@
                 動画プロフィール(Laravel版)
             </a>
 
-            <!-- PC: ナビリンク -->
-            <div class="hidden sm:flex items-center gap-4">
-                <a href="{{ route('dashboard') }}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors duration-150">
-                    ダッシュボード
-                </a>
-                <a href="{{ route('dashboard.profile.edit') }}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors duration-150">
-                    プロフィール編集
-                </a>
-                <a href="{{ route('videos.index') }}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors duration-150">
-                    動画管理
-                </a>
-                @if(Auth::user()->role === 'admin')
-                    <a href="{{ route('admin.users.index') }}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors duration-150">
-                        管理者
-                    </a>
-                @endif
-            </div>
-
-            <!-- PC: ユーザーメニュー -->
+            <!-- PC: ユーザーメニュー（ナビリンク統合） -->
             <div class="hidden sm:flex items-center gap-2">
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
@@ -40,6 +22,23 @@
                     </x-slot>
 
                     <x-slot name="content">
+                        <x-dropdown-link :href="route('dashboard')">
+                            ダッシュボード
+                        </x-dropdown-link>
+                        <x-dropdown-link :href="route('dashboard.profile.edit')">
+                            プロフィール編集
+                        </x-dropdown-link>
+                        <x-dropdown-link :href="route('videos.index')">
+                            動画管理
+                        </x-dropdown-link>
+                        @if(Auth::user()->role === 'admin')
+                            <x-dropdown-link :href="route('admin.users.index')">
+                                管理者
+                            </x-dropdown-link>
+                        @endif
+
+                        <div class="border-t border-gray-100 my-1"></div>
+
                         <x-dropdown-link :href="route('profile.edit')">
                             アカウント設定
                         </x-dropdown-link>

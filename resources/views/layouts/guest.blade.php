@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ config('app.name', '動画プロフィール') }}</title>
+        <title>{{ config('app.name', '動画プロフィール(Laravel版)') }}</title>
 
         <!-- Fonts: Plus Jakarta Sans + Inter -->
         <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -24,7 +24,7 @@
         <div class="min-h-screen flex flex-col items-center justify-center px-4 py-12">
             <!-- ロゴ -->
             <a href="/" class="mb-8 text-lg font-bold tracking-tight" style="font-family: 'Plus Jakarta Sans', sans-serif; color: #1D1D1F;">
-                動画プロフィール
+                動画プロフィール(Laravel版)
             </a>
 
             <!-- フォームカード -->

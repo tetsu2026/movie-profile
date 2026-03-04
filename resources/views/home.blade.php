@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ config('app.name', '動画プロフィール') }}</title>
+    <title>{{ config('app.name', '動画プロフィール(Laravel版)') }}</title>
 
     <!-- Fonts: Plus Jakarta Sans + Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -29,7 +29,7 @@
     <nav class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200/80">
         <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
             <span class="text-base font-bold tracking-tight" style="font-family: 'Plus Jakarta Sans', sans-serif; color: #1D1D1F;">
-                動画プロフィール
+                動画プロフィール(Laravel版)
             </span>
             <div class="flex items-center gap-3">
                 <a href="{{ route('login') }}"
@@ -522,10 +522,10 @@
     <footer class="border-t border-gray-200 py-8">
         <div class="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
             <span class="text-sm font-bold" style="font-family: 'Plus Jakarta Sans', sans-serif; color: #1D1D1F;">
-                動画プロフィール
+                動画プロフィール(Laravel版)
             </span>
             <p class="text-xs text-gray-400">
-                &copy; {{ date('Y') }} {{ config('app.name', '動画プロフィール') }}. All rights reserved.
+                &copy; {{ date('Y') }} {{ config('app.name', '動画プロフィール(Laravel版)') }}. All rights reserved.
             </p>
         </div>
     </footer>

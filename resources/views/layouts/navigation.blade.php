@@ -5,8 +5,26 @@
             <a href="{{ route('dashboard') }}"
                class="text-base font-bold tracking-tight"
                style="font-family: 'Plus Jakarta Sans', sans-serif; color: #1D1D1F;">
-                動画プロフィール
+                動画プロフィール(Laravel版)
             </a>
+
+            <!-- PC: ナビリンク -->
+            <div class="hidden sm:flex items-center gap-4">
+                <a href="{{ route('dashboard') }}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors duration-150">
+                    ダッシュボード
+                </a>
+                <a href="{{ route('dashboard.profile.edit') }}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors duration-150">
+                    プロフィール編集
+                </a>
+                <a href="{{ route('videos.index') }}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors duration-150">
+                    動画管理
+                </a>
+                @if(Auth::user()->role === 'admin')
+                    <a href="{{ route('admin.users.index') }}" class="text-sm text-gray-600 hover:text-gray-900 transition-colors duration-150">
+                        管理者
+                    </a>
+                @endif
+            </div>
 
             <!-- PC: ユーザーメニュー -->
             <div class="hidden sm:flex items-center gap-2">
@@ -57,6 +75,21 @@
             <p class="text-xs text-gray-400 mt-0.5">{{ Auth::user()->email }}</p>
         </div>
         <div class="pb-4 px-3 space-y-1">
+            <x-responsive-nav-link :href="route('dashboard')">
+                ダッシュボード
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('dashboard.profile.edit')">
+                プロフィール編集
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('videos.index')">
+                動画管理
+            </x-responsive-nav-link>
+            @if(Auth::user()->role === 'admin')
+                <x-responsive-nav-link :href="route('admin.users.index')">
+                    管理者
+                </x-responsive-nav-link>
+            @endif
+            <div class="border-t border-gray-100 my-2"></div>
             <x-responsive-nav-link :href="route('profile.edit')">
                 アカウント設定
             </x-responsive-nav-link>

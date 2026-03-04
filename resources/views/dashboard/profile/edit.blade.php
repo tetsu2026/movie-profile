@@ -53,6 +53,57 @@
                     @enderror
                 </div>
 
+                {{-- サムネイル動画 --}}
+                <div>
+                    <x-input-label for="thumbnail_video_id" value="サムネイル動画" />
+                    <span class="text-xs text-gray-400 mb-2 block">画面右下に円形で自動再生される動画</span>
+                    <select
+                        name="thumbnail_video_id"
+                        id="thumbnail_video_id"
+                        class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-150 cursor-pointer @error('thumbnail_video_id') ring-2 ring-red-300 @enderror"
+                        style="color: #1D1D1F;">
+                        <option value="">選択しない</option>
+                        @foreach($completedVideos as $video)
+                            <option value="{{ $video->id }}"
+                                    @if(old('thumbnail_video_id', $profile->thumbnail_video_id) == $video->id) selected @endif>
+                                {{ $video->original_filename }} ({{ $video->created_at->format('Y/m/d H:i') }})
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('thumbnail_video_id')
+                        <p class="mt-1.5 text-xs" style="color: #DC2626;">{{ $message }}</p>
+                    @enderror
+
+                    @if($completedVideos->count() === 0)
+                        <div class="mt-3 rounded-xl px-4 py-3 text-sm" style="background-color: #FFFBEB; color: #92400E;">
+                            エンコード完了済みの動画がありません。
+                            <a href="{{ route('videos.index') }}" class="underline font-medium">動画管理ページ</a>からアップロードしてください。
+                        </div>
+                    @endif
+                </div>
+
+                {{-- ポップアップ動画 --}}
+                <div>
+                    <x-input-label for="popup_video_id" value="ポップアップ動画" />
+                    <span class="text-xs text-gray-400 mb-2 block">サムネイル動画クリック時にモーダルで表示される動画</span>
+                    <select
+                        name="popup_video_id"
+                        id="popup_video_id"
+                        class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-150 cursor-pointer @error('popup_video_id') ring-2 ring-red-300 @enderror"
+                        style="color: #1D1D1F;">
+                        <option value="">選択しない</option>
+                        @foreach($completedVideos as $video)
+                            <option value="{{ $video->id }}"
+                                    @if(old('popup_video_id', $profile->popup_video_id) == $video->id) selected @endif>
+                                {{ $video->original_filename }} ({{ $video->created_at->format('Y/m/d H:i') }})
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('popup_video_id')
+                        <p class="mt-1.5 text-xs" style="color: #DC2626;">{{ $message }}</p>
+                    @enderror
+                </div>
+
                 {{-- テーマカラー --}}
                 <div>
                     <x-input-label for="theme_color" value="テーマカラー" />
@@ -104,57 +155,6 @@
                     </div>
 
                     @error('theme_color')
-                        <p class="mt-1.5 text-xs" style="color: #DC2626;">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                {{-- サムネイル動画 --}}
-                <div>
-                    <x-input-label for="thumbnail_video_id" value="サムネイル動画" />
-                    <span class="text-xs text-gray-400 mb-2 block">画面右下に円形で自動再生される動画</span>
-                    <select
-                        name="thumbnail_video_id"
-                        id="thumbnail_video_id"
-                        class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-150 cursor-pointer @error('thumbnail_video_id') ring-2 ring-red-300 @enderror"
-                        style="color: #1D1D1F;">
-                        <option value="">選択しない</option>
-                        @foreach($completedVideos as $video)
-                            <option value="{{ $video->id }}"
-                                    @if(old('thumbnail_video_id', $profile->thumbnail_video_id) == $video->id) selected @endif>
-                                {{ $video->original_filename }} ({{ $video->created_at->format('Y/m/d H:i') }})
-                            </option>
-                        @endforeach
-                    </select>
-                    @error('thumbnail_video_id')
-                        <p class="mt-1.5 text-xs" style="color: #DC2626;">{{ $message }}</p>
-                    @enderror
-
-                    @if($completedVideos->count() === 0)
-                        <div class="mt-3 rounded-xl px-4 py-3 text-sm" style="background-color: #FFFBEB; color: #92400E;">
-                            エンコード完了済みの動画がありません。
-                            <a href="{{ route('videos.index') }}" class="underline font-medium">動画管理ページ</a>からアップロードしてください。
-                        </div>
-                    @endif
-                </div>
-
-                {{-- ポップアップ動画 --}}
-                <div>
-                    <x-input-label for="popup_video_id" value="ポップアップ動画" />
-                    <span class="text-xs text-gray-400 mb-2 block">サムネイル動画クリック時にモーダルで表示される動画</span>
-                    <select
-                        name="popup_video_id"
-                        id="popup_video_id"
-                        class="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all duration-150 cursor-pointer @error('popup_video_id') ring-2 ring-red-300 @enderror"
-                        style="color: #1D1D1F;">
-                        <option value="">選択しない</option>
-                        @foreach($completedVideos as $video)
-                            <option value="{{ $video->id }}"
-                                    @if(old('popup_video_id', $profile->popup_video_id) == $video->id) selected @endif>
-                                {{ $video->original_filename }} ({{ $video->created_at->format('Y/m/d H:i') }})
-                            </option>
-                        @endforeach
-                    </select>
-                    @error('popup_video_id')
                         <p class="mt-1.5 text-xs" style="color: #DC2626;">{{ $message }}</p>
                     @enderror
                 </div>

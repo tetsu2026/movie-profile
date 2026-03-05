@@ -23,7 +23,7 @@ class StoreVideoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'video' => 'required|file|mimes:mp4,mov,avi,wmv|max:102400', // 100MB
+            'video' => 'required|file|mimes:mp4,mov,avi,wmv|max:5120', // 5MB
         ];
     }
 
@@ -59,7 +59,7 @@ class StoreVideoRequest extends FormRequest
             'video.required' => '動画ファイルを選択してください',
             'video.file' => 'ファイルをアップロードしてください',
             'video.mimes' => '対応している動画形式はmp4, mov, avi, wmvです',
-            'video.max' => 'ファイルサイズは100MB以内にしてください',
+            'video.max' => 'ファイルサイズは5MB以内にしてください',
         ];
     }
 }

@@ -57,6 +57,8 @@ class UpdateProfileRequest extends FormRequest
                 'string',
                 'regex:/^#[0-9A-Fa-f]{6}$/',
             ],
+            // 公開設定
+            'is_public' => 'boolean',
         ];
     }
 

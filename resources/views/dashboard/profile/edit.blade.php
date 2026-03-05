@@ -159,6 +159,28 @@
                     @enderror
                 </div>
 
+                {{-- 公開設定 --}}
+                <div class="flex items-center gap-3">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input
+                            type="hidden"
+                            name="is_public"
+                            value="0"
+                        >
+                        <input
+                            type="checkbox"
+                            name="is_public"
+                            value="1"
+                            {{ old('is_public', $profile->is_public) ? 'checked' : '' }}
+                            class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        >
+                        <span class="text-sm font-medium text-gray-700">プロフィールを公開する</span>
+                    </label>
+                    <span class="text-xs text-gray-400">
+                        オフにすると公開ページ（/users/ID）にアクセスできなくなります
+                    </span>
+                </div>
+
                 {{-- ボタン --}}
                 <div class="flex items-center justify-end gap-3 pt-2 border-t border-gray-100">
                     <a href="{{ route('dashboard') }}"

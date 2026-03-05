@@ -55,7 +55,7 @@
                     {{-- ファイル未選択時 --}}
                     <div id="placeholder-text">
                         <p class="text-gray-500">クリックして動画を選択</p>
-                        <p class="mt-1 text-sm text-gray-400">mp4, mov, avi, wmv / 最大100MB / 1分以内</p>
+                        <p class="mt-1 text-sm text-gray-400">mp4, mov, avi, wmv / 最大5MB / 1分以内</p>
                     </div>
 
                     {{-- ファイル選択後 --}}

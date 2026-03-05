@@ -28,6 +28,11 @@ class PublicProfileController extends Controller
             }
         );
 
+        // 非公開プロフィールの場合は404を返す
+        if (!$user->profile || !$user->profile->is_public) {
+            abort(404);
+        }
+
         return view('users.show', [
             'user' => $user,
             'profile' => $user->profile,

@@ -9,23 +9,25 @@
 
             {{-- プレビューバナー --}}
             <div class="rounded-2xl px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
-                 style="background-color: #1D1D1F; color: #ffffff;">
+                 style="background-color: #F0FDF4; color: #1D1D1F;">
                 <div class="flex items-center gap-2.5">
                     <svg class="w-4 h-4 flex-shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                     </svg>
-                    <span class="text-sm font-medium">プレビュー表示中 — 他のユーザーには表示されません</span>
+                    <span class="text-sm font-medium">プレビュー表示中（他のユーザーには表示されません）</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <a href="{{ route('dashboard.profile.edit') }}"
-                       class="text-sm font-medium px-4 py-1.5 rounded-full border border-white/30 hover:border-white/60 transition-colors duration-150 cursor-pointer">
+                       class="text-sm font-medium px-4 py-1.5 rounded-full transition-colors duration-150 cursor-pointer"
+                       style="border: 1px solid #D1D5DB; color: #1D1D1F;"
+                       onmouseover="this.style.borderColor='#9CA3AF'" onmouseout="this.style.borderColor='#D1D5DB'">
                         編集に戻る
                     </a>
                     <a href="{{ route('users.show', ['id' => Auth::id()]) }}"
                        target="_blank"
                        class="text-sm font-medium px-4 py-1.5 rounded-full transition-colors duration-150 cursor-pointer"
-                       style="background-color: #2563EB;">
+                       style="background-color: #1D1D1F; color: #ffffff;">
                         公開ページを見る
                     </a>
                 </div>

@@ -27,7 +27,7 @@
 
     {{-- ========== ナビゲーション ========== --}}
     <nav class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200/80">
-        <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
             <span class="text-base font-bold tracking-tight" style="font-family: 'Plus Jakarta Sans', sans-serif; color: #1D1D1F;">
                 動画プロフィール(Laravel版)
             </span>
@@ -46,7 +46,7 @@
     </nav>
 
     {{-- ========== ヒーローセクション ========== --}}
-    <section class="max-w-6xl mx-auto px-6 pt-20 pb-16 text-center">
+    <section class="max-w-6xl mx-auto px-6 pt-10 pb-16 text-center">
         <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-6 border border-gray-200"
              style="background-color: #fff; color: #2563EB;">
             <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
@@ -88,7 +88,7 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
 
             {{-- 大カード: メイン機能 (col-span-2, row-span-2) --}}
-            <div class="col-span-2 row-span-2 rounded-3xl p-8 flex flex-col justify-between min-h-64 cursor-pointer transition-transform duration-300 hover:scale-[1.01]"
+            <div class="col-span-2 row-span-2 rounded-3xl p-8 flex flex-col justify-between min-h-64 transition-transform duration-300 hover:scale-[1.01]"
                  style="background-color: #1D1D1F; color: #fff;">
                 {{-- ビデオアイコン --}}
                 <div class="w-12 h-12 rounded-2xl flex items-center justify-center mb-6" style="background-color: rgba(255,255,255,0.1);">
@@ -106,13 +106,13 @@
             </div>
 
             {{-- カードA: 5分で完成 --}}
-            <div class="col-span-1 rounded-3xl p-6 flex flex-col justify-between min-h-32 bg-white cursor-pointer transition-transform duration-300 hover:scale-[1.02]">
+            <div class="col-span-1 rounded-3xl p-6 flex flex-col justify-between min-h-32 bg-white transition-transform duration-300 hover:scale-[1.02]">
                 <span class="text-4xl md:text-5xl font-extrabold" style="color: #1D1D1F; letter-spacing: -0.04em;">5分</span>
                 <p class="text-sm font-medium text-gray-500 mt-2">で完成</p>
             </div>
 
             {{-- カードB: URLシェア --}}
-            <div class="col-span-1 rounded-3xl p-6 flex flex-col justify-between min-h-32 cursor-pointer transition-transform duration-300 hover:scale-[1.02]"
+            <div class="col-span-1 rounded-3xl p-6 flex flex-col justify-between min-h-32 transition-transform duration-300 hover:scale-[1.02]"
                  style="background-color: #2563EB; color: #fff;">
                 <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background-color: rgba(255,255,255,0.2);">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8">
@@ -123,7 +123,7 @@
             </div>
 
             {{-- カードC: 1分対応 --}}
-            <div class="col-span-1 rounded-3xl p-6 flex flex-col justify-between min-h-32 bg-white cursor-pointer transition-transform duration-300 hover:scale-[1.02]">
+            <div class="col-span-1 rounded-3xl p-6 flex flex-col justify-between min-h-32 bg-white transition-transform duration-300 hover:scale-[1.02]">
                 <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background-color: #F5F5F7;">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" style="color: #1D1D1F;">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -136,7 +136,7 @@
             </div>
 
             {{-- カードD: 100MB --}}
-            <div class="col-span-1 rounded-3xl p-6 flex flex-col justify-between min-h-32 bg-white cursor-pointer transition-transform duration-300 hover:scale-[1.02]">
+            <div class="col-span-1 rounded-3xl p-6 flex flex-col justify-between min-h-32 bg-white transition-transform duration-300 hover:scale-[1.02]">
                 <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background-color: #F5F5F7;">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" style="color: #1D1D1F;">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
@@ -149,7 +149,7 @@
             </div>
 
             {{-- ワイドカード: プレビュー機能 --}}
-            <div class="col-span-2 md:col-span-3 rounded-3xl p-7 bg-white flex flex-col md:flex-row items-start md:items-center gap-6 cursor-pointer transition-transform duration-300 hover:scale-[1.01]">
+            <div class="col-span-2 md:col-span-3 rounded-3xl p-7 bg-white flex flex-col md:flex-row items-start md:items-center gap-6 transition-transform duration-300 hover:scale-[1.01]">
                 <div class="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style="background-color: #F5F5F7;">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" style="color: #2563EB;">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0H3"/>
@@ -162,7 +162,7 @@
             </div>
 
             {{-- カードE: モバイル対応 --}}
-            <div class="col-span-2 md:col-span-1 rounded-3xl p-6 flex flex-col justify-between cursor-pointer transition-transform duration-300 hover:scale-[1.02]"
+            <div class="col-span-2 md:col-span-1 rounded-3xl p-6 flex flex-col justify-between transition-transform duration-300 hover:scale-[1.02]"
                  style="background-color: #ECFDF5;">
                 <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background-color: rgba(255,255,255,0.7);">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" style="color: #059669;">
@@ -180,19 +180,19 @@
     {{-- ========== 統計セクション ========== --}}
     <section class="max-w-6xl mx-auto px-6 py-10">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
-            <div class="rounded-3xl p-7 bg-white text-center cursor-default">
+            <div class="rounded-3xl p-7 bg-white text-center transition-transform duration-300 hover:scale-[1.02]">
                 <p class="text-4xl font-extrabold mb-1" style="color: #1D1D1F; letter-spacing: -0.04em;">1,000+</p>
                 <p class="text-sm text-gray-500">登録ユーザー</p>
             </div>
-            <div class="rounded-3xl p-7 bg-white text-center cursor-default">
+            <div class="rounded-3xl p-7 bg-white text-center transition-transform duration-300 hover:scale-[1.02]">
                 <p class="text-4xl font-extrabold mb-1" style="color: #2563EB; letter-spacing: -0.04em;">99.9%</p>
                 <p class="text-sm text-gray-500">稼働率</p>
             </div>
-            <div class="rounded-3xl p-7 bg-white text-center cursor-default">
+            <div class="rounded-3xl p-7 bg-white text-center transition-transform duration-300 hover:scale-[1.02]">
                 <p class="text-4xl font-extrabold mb-1" style="color: #1D1D1F; letter-spacing: -0.04em;">5分</p>
                 <p class="text-sm text-gray-500">平均作成時間</p>
             </div>
-            <div class="rounded-3xl p-7 text-center cursor-default"
+            <div class="rounded-3xl p-7 text-center transition-transform duration-300 hover:scale-[1.02]"
                  style="background-color: #1D1D1F;">
                 <p class="text-4xl font-extrabold mb-1 text-white" style="letter-spacing: -0.04em;">無料</p>
                 <p class="text-sm" style="color: rgba(255,255,255,0.5);">スタート</p>
@@ -209,7 +209,7 @@
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
             {{-- ステップ1 --}}
-            <div class="rounded-3xl p-8 bg-white cursor-default">
+            <div class="rounded-3xl p-8 bg-white transition-transform duration-300 hover:scale-[1.02]">
                 <span class="text-xs font-bold tracking-widest text-gray-300 uppercase">Step 01</span>
                 <div class="w-12 h-12 rounded-2xl flex items-center justify-center my-6" style="background-color: #F5F5F7;">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" style="color: #1D1D1F;">
@@ -221,7 +221,7 @@
             </div>
 
             {{-- ステップ2 --}}
-            <div class="rounded-3xl p-8 bg-white cursor-default">
+            <div class="rounded-3xl p-8 bg-white transition-transform duration-300 hover:scale-[1.02]">
                 <span class="text-xs font-bold tracking-widest text-gray-300 uppercase">Step 02</span>
                 <div class="w-12 h-12 rounded-2xl flex items-center justify-center my-6" style="background-color: #F5F5F7;">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" style="color: #1D1D1F;">
@@ -233,7 +233,7 @@
             </div>
 
             {{-- ステップ3 --}}
-            <div class="rounded-3xl p-8 cursor-default transition-transform duration-300"
+            <div class="rounded-3xl p-8 transition-transform duration-300 hover:scale-[1.02]"
                  style="background-color: #1D1D1F; color: #fff;">
                 <span class="text-xs font-bold tracking-widest uppercase" style="color: rgba(255,255,255,0.3);">Step 03</span>
                 <div class="w-12 h-12 rounded-2xl flex items-center justify-center my-6" style="background-color: rgba(255,255,255,0.1);">
@@ -452,7 +452,7 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
 
             {{-- 対応フォーマット --}}
-            <div class="col-span-2 rounded-3xl p-7 bg-white cursor-default">
+            <div class="col-span-2 rounded-3xl p-7 bg-white transition-transform duration-300 hover:scale-[1.01]">
                 <p class="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-4">対応フォーマット</p>
                 <div class="flex flex-wrap gap-2">
                     @foreach(['MP4', 'MOV', 'AVI', 'WMV'] as $fmt)
@@ -465,7 +465,7 @@
             </div>
 
             {{-- エンコード --}}
-            <div class="col-span-1 rounded-3xl p-6 cursor-default" style="background-color: #EFF6FF;">
+            <div class="col-span-1 rounded-3xl p-6 transition-transform duration-300 hover:scale-[1.02]" style="background-color: #EFF6FF;">
                 <div class="w-9 h-9 rounded-xl flex items-center justify-center mb-4" style="background-color: #DBEAFE;">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" style="color: #1D4ED8;">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/>
@@ -477,7 +477,7 @@
             </div>
 
             {{-- 管理ダッシュボード --}}
-            <div class="col-span-1 rounded-3xl p-6 cursor-default" style="background-color: #FFF7ED;">
+            <div class="col-span-1 rounded-3xl p-6 transition-transform duration-300 hover:scale-[1.02]" style="background-color: #FFF7ED;">
                 <div class="w-9 h-9 rounded-xl flex items-center justify-center mb-4" style="background-color: #FED7AA;">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" style="color: #C2410C;">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>

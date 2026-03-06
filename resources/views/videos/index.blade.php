@@ -99,7 +99,8 @@
                         this.stopPolling();
                     }
                  }">
-                <div class="overflow-x-auto">
+                {{-- PC版: テーブル表示 --}}
+                <div class="hidden md:block overflow-x-auto">
                     <table class="min-w-full">
                         <thead>
                             <tr style="border-bottom: 1px solid #F5F5F7;">
@@ -197,6 +198,86 @@
                             @endforeach
                         </tbody>
                     </table>
+                </div>
+
+                {{-- スマホ版: カード表示 --}}
+                <div class="md:hidden divide-y divide-gray-50">
+                    @foreach($videos as $video)
+                        @php
+                            $isThumbnail = $video->id === $thumbnailVideoId;
+                            $isPopup = $video->id === $popupVideoId;
+                            if ($isThumbnail && $isPopup) {
+                                $confirmMessage = 'この動画はサムネイル・ポップアップ動画に設定されています。\n削除すると両方の設定が解除されます。\n本当に削除しますか？';
+                            } elseif ($isThumbnail) {
+                                $confirmMessage = 'この動画はサムネイル動画に設定されています。\n削除すると設定も解除されます。\n本当に削除しますか？';
+                            } elseif ($isPopup) {
+                                $confirmMessage = 'この動画はポップアップ動画に設定されています。\n削除すると設定も解除されます。\n本当に削除しますか？';
+                            } else {
+                                $confirmMessage = '本当に削除しますか？この操作は取り消せません。';
+                            }
+                            $isUsed = $isThumbnail || $isPopup;
+                        @endphp
+                        <div class="px-5 py-4">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-sm font-medium truncate" style="color: #1D1D1F;">{{ $video->original_filename }}</p>
+                                    <div class="mt-2">
+                                        <template x-if="statuses[{{ $video->id }}]?.status === 'uploading'">
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color: #EFF6FF; color: #1D4ED8;">
+                                                アップロード中
+                                            </span>
+                                        </template>
+                                        <template x-if="statuses[{{ $video->id }}]?.status === 'encoding'">
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color: #FFFBEB; color: #B45309;">
+                                                エンコード中
+                                            </span>
+                                        </template>
+                                        <template x-if="statuses[{{ $video->id }}]?.status === 'completed'">
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color: #F0FDF4; color: #15803D;">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+                                                </svg>
+                                                完了
+                                            </span>
+                                        </template>
+                                        <template x-if="statuses[{{ $video->id }}]?.status === 'failed'">
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold" style="background-color: #FFF1F2; color: #B91C1C;">
+                                                エンコード失敗
+                                            </span>
+                                        </template>
+                                    </div>
+                                    @if($isThumbnail || $isPopup)
+                                        <div class="flex items-center gap-2 mt-1.5">
+                                            @if($isThumbnail)
+                                                <span class="inline-flex text-xs px-2 py-0.5 rounded-full font-medium" style="background-color: #FFF7ED; color: #C2410C;">サムネイル</span>
+                                            @endif
+                                            @if($isPopup)
+                                                <span class="inline-flex text-xs px-2 py-0.5 rounded-full font-medium" style="background-color: #F0F9FF; color: #0369A1;">ポップアップ</span>
+                                            @endif
+                                        </div>
+                                    @endif
+                                    <template x-if="statuses[{{ $video->id }}]?.status === 'failed' && statuses[{{ $video->id }}]?.error_message">
+                                        <p x-text="statuses[{{ $video->id }}]?.error_message?.substring(0, 80)"
+                                           class="text-xs text-gray-400 mt-1.5"></p>
+                                    </template>
+                                </div>
+                                <form method="POST" action="{{ route('videos.destroy', $video->id) }}" class="flex-shrink-0"
+                                      onsubmit="return confirm('{{ $confirmMessage }}');">
+                                    @csrf
+                                    @method('DELETE')
+                                    @if($isUsed)
+                                        <input type="hidden" name="force_delete" value="1">
+                                    @endif
+                                    <button type="submit"
+                                            class="text-sm font-medium px-3 py-1.5 rounded-lg transition-colors duration-150 cursor-pointer hover:bg-red-50"
+                                            style="color: #DC2626;">
+                                        削除
+                                    </button>
+                                </form>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-2">{{ $video->created_at->format('Y/m/d H:i') }}</p>
+                        </div>
+                    @endforeach
                 </div>
             </div>
         @else

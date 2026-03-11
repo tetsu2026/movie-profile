@@ -82,6 +82,45 @@ docker-compose exec db mysql -u root -proot movie_prf
 | db | movie_prf_db | 3306 | MySQL 8.0 |
 | minio | movie_prf_minio | 9000, 9001 | S3エミュレータ |
 
+## コーディング規約
+
+### 命名規則
+
+| 対象 | ルール | 例 |
+|------|--------|------|
+| クラス名 | PascalCase | `VideoController`, `ProfileService` |
+| メソッド名 | camelCase | `uploadVideo()`, `encodeVideo()` |
+| 変数名 | camelCase | `$userId`, `$encodedPath` |
+| 定数 | UPPER_SNAKE_CASE | `MAX_FILE_SIZE`, `ENCODING_TIMEOUT` |
+| DBテーブル | snake_case（複数形） | `users`, `profiles`, `videos` |
+| DBカラム | snake_case | `user_id`, `created_at` |
+
+### コードスタイル
+
+- PSR-12 準拠（PHP 4スペース、Blade 2スペース）
+- Tailwind CSS ユーティリティクラスのみ使用（カスタムCSS禁止）
+- Eloquent モデル: テーブル名は複数形、モデル名は単数形
+- バリデーション: FormRequest クラスを使用
+- ビジネスロジック: `app/Services/` に分離
+
+### Bladeテンプレート構成
+
+```
+resources/views/
+├── layouts/
+│   ├── app.blade.php        # 共通レイアウト
+│   └── guest.blade.php      # 未認証ユーザー用レイアウト
+├── components/              # 再利用可能なコンポーネント
+├── dashboard/               # 認証ユーザー向け画面
+│   ├── index.blade.php
+│   ├── profile/
+│   └── videos/
+├── users/                   # 公開プロフィールページ
+│   └── show.blade.php
+└── admin/                   # 管理者専用画面
+    └── users/
+```
+
 ## プロジェクト構成
 
 ```

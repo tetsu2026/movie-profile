@@ -1,5 +1,5 @@
 <x-guest-layout>
-    <h1 class="text-xl font-bold mb-1" style="font-family: 'Plus Jakarta Sans', sans-serif; color: #1D1D1F;">メールアドレスの確認</h1>
+    <h1 class="text-xl font-bold mb-1" style="font-family: 'Plus Jakarta Sans', sans-serif; color: #1D1D1F;">確認メールを送信しました</h1>
     <p class="text-sm text-gray-500 mb-6">
         ご登録ありがとうございます。登録したメールアドレスに確認リンクをお送りしました。リンクをクリックして確認を完了してください。
     </p>

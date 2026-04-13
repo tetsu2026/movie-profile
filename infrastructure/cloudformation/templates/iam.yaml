@@ -45,6 +45,16 @@ Resources:
                   - s3:ListBucket
                 Resource:
                   - !Sub arn:aws:s3:::${VideosBucketName}
+        # SESメール送信ポリシー
+        - PolicyName: !Sub ${Environment}-movie-prf-ses-access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ses:SendEmail
+                  - ses:SendRawEmail
+                Resource: '*'
         # Systems Manager Session Manager用（オプション）
         - PolicyName: !Sub ${Environment}-movie-prf-ssm-access
           PolicyDocument:

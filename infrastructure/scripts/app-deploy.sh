@@ -43,6 +43,33 @@ log_step() {
     echo -e "${BLUE}[STEP]${NC} $1"
 }
 
+# RDS状態チェック（.envのDB_HOSTからインスタンス識別子を取得）
+check_db_connection() {
+    local db_host
+    db_host=$(grep '^DB_HOST=' "$APP_DIR/.env" | cut -d'=' -f2)
+    local db_identifier
+    db_identifier=$(echo "$db_host" | cut -d'.' -f1)
+
+    if [[ -z "$db_identifier" ]]; then
+        log_warn "DB_HOSTが設定されていません"
+        return 1
+    fi
+
+    local status
+    status=$(aws rds describe-db-instances \
+        --db-instance-identifier "$db_identifier" \
+        --query 'DBInstances[0].DBInstanceStatus' \
+        --output text --region "${REGION:-ap-northeast-1}" 2>/dev/null)
+
+    if [[ "$status" == "available" ]]; then
+        log_info "RDS状態: available"
+        return 0
+    else
+        log_warn "RDS状態: ${status:-取得失敗}"
+        return 1
+    fi
+}
+
 # ヘルプ表示
 show_help() {
     echo "使用方法: $0 [オプション]"
@@ -116,7 +143,13 @@ initial_setup() {
     php artisan key:generate --force
 
     log_step "7/9: データベースマイグレーション"
-    php artisan migrate --force
+    if check_db_connection; then
+        php artisan migrate --force
+    else
+        log_warn "RDSに接続できません。マイグレーションをスキップしました。"
+        log_warn "RDS起動後に手動で実行してください: php artisan migrate --force"
+        DB_SKIPPED=true
+    fi
 
     log_step "8/9: キャッシュクリアと最適化"
     php artisan config:cache
@@ -134,6 +167,10 @@ initial_setup() {
     php artisan storage:link
 
     log_info "初回セットアップ完了！"
+    if [[ "${DB_SKIPPED:-false}" == "true" ]]; then
+        log_warn "※ RDS停止中のためマイグレーションがスキップされています"
+        log_warn "  RDS起動後: cd $APP_DIR && php artisan migrate --force"
+    fi
     echo ""
     echo "次のステップ:"
     echo "  1. Webブラウザでアプリケーションにアクセス"
@@ -175,7 +212,13 @@ update_app() {
     npm run build
 
     log_step "6/7: データベースマイグレーション"
-    php artisan migrate --force
+    if check_db_connection; then
+        php artisan migrate --force
+    else
+        log_warn "RDSに接続できません。マイグレーションをスキップしました。"
+        log_warn "RDS起動後に手動で実行してください: php artisan migrate --force"
+        DB_SKIPPED=true
+    fi
 
     log_step "7/7: キャッシュクリアと最適化"
     php artisan config:cache
@@ -193,6 +236,10 @@ update_app() {
     sudo chmod -R 775 "$APP_DIR/bootstrap/cache"
 
     log_info "アプリケーション更新完了！"
+    if [[ "${DB_SKIPPED:-false}" == "true" ]]; then
+        log_warn "※ RDS停止中のためマイグレーションがスキップされています"
+        log_warn "  RDS起動後: cd $APP_DIR && php artisan migrate --force"
+    fi
 }
 
 # サービス再起動

@@ -239,11 +239,39 @@ MAIL_FROM_ADDRESS=noreply@hozu.click
 MAIL_FROM_NAME="動画プロフィール(Laravel版)"
 ```
 
-更新後にキャッシュをクリア:
+更新後にキャッシュを再生成:
 
 ```bash
-php artisan config:clear
+php artisan config:cache
 ```
+
+#### artisanコマンドの実行について
+
+`storage/`と`bootstrap/cache/`の権限構成を別途修正対応したため、ec2-userでそのままartisanコマンドを実行できる（詳細はCosenseのLaravelページを参照）。
+
+#### SESの一時停止・再開
+
+メール送信を一時停止したい場合は、`.env`の`MAIL_MAILER`を`log`に変更する。メールは送信されず、`storage/logs/laravel.log`に出力される。
+
+**停止:**
+```bash
+# .envのMAIL_MAILERを変更
+MAIL_MAILER=log
+
+# キャッシュを再生成
+php artisan config:cache
+```
+
+**再開:**
+```bash
+# .envのMAIL_MAILERを変更
+MAIL_MAILER=ses
+
+# キャッシュを再生成
+php artisan config:cache
+```
+
+※ SES自体は送信しなければ課金されないため、費用目的での停止は不要。
 
 #### サンドボックス解除前のテスト方法
 

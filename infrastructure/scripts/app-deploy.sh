@@ -43,6 +43,20 @@ log_step() {
     echo -e "${BLUE}[STEP]${NC} $1"
 }
 
+# 権限設定
+# - アプリ全体: nginx:nginx 所有、ディレクトリ755・ファイル644
+# - storage と bootstrap/cache: 2775(setgid)・664 でグループ書き込み可
+#   → ec2-user(nginxグループ所属)と PHP-FPM(nginx) の双方から書き込める
+set_permissions() {
+    sudo chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
+    # 大文字X: ディレクトリ(および既に実行ビットのあるファイル)のみ実行ビットを付与
+    sudo chmod -R u=rwX,g=rX,o=rX "$APP_DIR"
+    # storage と bootstrap/cache はグループ書き込み可
+    sudo chmod -R u=rwX,g=rwX,o=rX "$APP_DIR/storage" "$APP_DIR/bootstrap/cache"
+    # setgid: 新規ファイル・ディレクトリのグループを nginx に継承させる
+    sudo find "$APP_DIR/storage" "$APP_DIR/bootstrap/cache" -type d -exec chmod g+s {} \;
+}
+
 # RDS状態チェック（.envのDB_HOSTからインスタンス識別子を取得）
 check_db_connection() {
     local db_host
@@ -158,10 +172,9 @@ initial_setup() {
     php artisan optimize
 
     log_step "9/9: 権限設定"
-    sudo chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
-    sudo chmod -R 755 "$APP_DIR"
-    sudo chmod -R 775 "$APP_DIR/storage"
-    sudo chmod -R 775 "$APP_DIR/bootstrap/cache"
+    # ec2-user を nginx グループに追加(初回のみ、既に所属していれば no-op)
+    sudo usermod -aG "$APP_USER" "$USER"
+    set_permissions
 
     # ストレージリンク
     php artisan storage:link
@@ -173,8 +186,9 @@ initial_setup() {
     fi
     echo ""
     echo "次のステップ:"
-    echo "  1. Webブラウザでアプリケーションにアクセス"
-    echo "  2. 動作確認"
+    echo "  1. 一度ログアウトして再ログイン(nginxグループの反映に必要)"
+    echo "  2. Webブラウザでアプリケーションにアクセス"
+    echo "  3. 動作確認"
 }
 
 # アプリケーション更新
@@ -230,10 +244,7 @@ update_app() {
     php artisan up
 
     # 権限再設定
-    sudo chown -R "$APP_USER":"$APP_USER" "$APP_DIR"
-    sudo chmod -R 755 "$APP_DIR"
-    sudo chmod -R 775 "$APP_DIR/storage"
-    sudo chmod -R 775 "$APP_DIR/bootstrap/cache"
+    set_permissions
 
     log_info "アプリケーション更新完了！"
     if [[ "${DB_SKIPPED:-false}" == "true" ]]; then

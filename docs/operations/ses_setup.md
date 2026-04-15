@@ -83,6 +83,18 @@ Step 4:   IAMロールに権限追加       → EC2にSES送信権限を付与
 Step 5:   EC2の.env更新             → MAIL_MAILER=ses に切り替え
 ```
 
+### SESの「ID（Identity）」とは
+
+SESから送信する際の「送信元（From）」または「送信先（To）」として使えることを証明した、検証済みのドメイン／メールアドレス。
+
+| 種類 | 証明方法 | 用途 |
+|------|---------|------|
+| ドメインID | DNSにDKIM用CNAMEを追加 | そのドメインの任意のアドレスを送信元にできる（例: `noreply@hozu.click`） |
+| メールアドレスID | 確認メールのリンククリック | 単一アドレスのみ対象 |
+
+- 本手順ではStep 1で **ドメインID (`hozu.click`)** を作成する
+- サンドボックス中は送信先も事前にIDとして登録する必要がある（解除後は不要）
+
 ### Step 1: SESでドメインIDを作成
 
 1. AWSコンソール → **Amazon SES** → **設定** → **ID** → **IDの作成**
@@ -311,6 +323,43 @@ php artisan config:cache
 **注意点**:
 - テスト送信画面のFrom-addressは、ID一覧でどのIDを選んだかで決まる。`hozu.click`を選べば`@hozu.click`、`hozumay@gmail.com`を選べば`@gmail.com`になる。
 - サンドボックス解除後は、送信先のID登録は不要になる（任意のアドレスに送信可能）。
+
+---
+
+## 認証結果の確認（SPF / DKIM / DMARC）
+
+受信したメールのヘッダーを確認することで、SPF・DKIM・DMARCの検証が成功しているかを確認できる。
+
+### 確認手順（Gmail）
+
+1. 受信したメールを開く
+2. 右上の **「︙」（その他）** → **「メッセージのソースを表示」** をクリック
+3. ヘッダーの中から `Authentication-Results:` の行を探す
+
+### 確認すべき項目
+
+`Authentication-Results:` 行に以下が含まれていれば成功：
+
+```
+Authentication-Results: mx.google.com;
+    dkim=pass header.i=@hozu.click header.s=... ;
+    dkim=pass header.i=@amazonses.com header.s=... ;
+    spf=pass (... designates <IP> as permitted sender) smtp.mailfrom=...@ap-northeast-1.amazonses.com;
+    dmarc=pass (p=QUARANTINE sp=QUARANTINE dis=NONE) header.from=hozu.click
+```
+
+| 項目 | 成功の条件 | 意味 |
+|------|----------|------|
+| **SPF** | `spf=pass` | SESのサーバーが送信元として許可されている |
+| **DKIM（自ドメイン）** | `dkim=pass header.i=@hozu.click` | `hozu.click` の秘密鍵による署名が検証成功（**特に重要**：自分のドメインで署名できている証拠） |
+| **DKIM（SES）** | `dkim=pass header.i=@amazonses.com` | SES自身のデフォルト署名も検証成功 |
+| **DMARC** | `dmarc=pass header.from=hozu.click` | SPFまたはDKIMが `hozu.click` に揃って検証成功（alignment OK） |
+
+### トラブルシューティング
+
+- `dkim=fail` や `dkim=none`（hozu.click側）→ Step 2のDKIMレコードがDNSに反映されていない。`dig TXT <selector>._domainkey.hozu.click` で確認
+- `spf=fail` → 稀。MAIL FROMドメインをカスタム設定している場合は、そのドメインのSPFレコードを確認
+- `dmarc=fail` → `From:` ヘッダーのドメインとDKIM署名の`d=`ドメインが一致していない可能性。SESのDKIMが `hozu.click` で署名されているか確認
 
 ---
 

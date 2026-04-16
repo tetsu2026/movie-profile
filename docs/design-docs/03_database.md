@@ -1,9 +1,24 @@
 # データベース設計
 
+## DB構成概要
+
+本プロジェクトは2つのデータベースを使用する：
+
+| DB | 用途 | 接続名 |
+|---|---|---|
+| **MySQL 8.0** | アプリ本体(ユーザー/プロフィール/動画/チャット履歴) | `mysql` (default) |
+| **PostgreSQL 16 + pgvector** | チャットボット専用(FAQチャンク・ベクトル検索) | `pgsql_chatbot` |
+
 ## テーブル一覧
+
+### MySQL側（アプリ本体）
 - **users**: ユーザー認証情報（メールアドレス、パスワード、権限）
 - **profiles**: ユーザーのプロフィール情報（名前、経歴、公開ページの内容）
 - **videos**: アップロードされた動画の管理（エンコード状態、ファイルパス）
+- **chat_messages**: チャットボット会話履歴
+
+### PostgreSQL側（チャットボット専用）
+- **faq_chunks**: FAQチャンクと埋め込みベクトル（pgvector使用）
 
 ## 主要テーブル DDL
 
@@ -117,6 +132,71 @@ CREATE TABLE videos (
 - `thumbnail_path`: 動画のサムネイル画像パス（任意）
 - `deleted_at`: ソフトデリート用（Laravel SoftDeletesトレイト）
 
+### chat_messages テーブル（MySQL側）
+
+```sql
+CREATE TABLE chat_messages (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL COMMENT '発言ユーザーID',
+    role ENUM('user', 'assistant') NOT NULL COMMENT '発言者ロール',
+    content TEXT NOT NULL COMMENT 'メッセージ本文',
+    context_chunks JSON NULL COMMENT '参照したFAQチャンクIDの配列(デバッグ用)',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '作成日時',
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user_id_created_at (user_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='チャットボット会話履歴';
+```
+
+**カラム説明**:
+- `id`: メッセージID（主キー）
+- `user_id`: 発言ユーザーID（外部キー）
+- `role`: 発言者ロール（`user`: ユーザー質問 / `assistant`: ボット応答）
+- `content`: メッセージ本文
+- `context_chunks`: ボット応答時に参照したFAQチャンクIDの配列（デバッグ・精度検証用）
+- `created_at`: メッセージ作成日時
+
+**設計方針**:
+- `updated_at` / `deleted_at` は持たない（追記のみ、編集・論理削除しない）
+- 複合インデックス `(user_id, created_at)` で「特定ユーザーの直近N件取得」を高速化（マルチターン会話の文脈構築で多用）
+
+### faq_chunks テーブル（PostgreSQL側）
+
+```sql
+-- pgvector拡張を事前に有効化
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE faq_chunks (
+    id BIGSERIAL PRIMARY KEY,
+    source_path VARCHAR(500) NOT NULL,          -- 例: docs/design-docs/02_architecture.md
+    chunk_index INT NOT NULL,                   -- 同一ファイル内のチャンク番号(0始まり)
+    content TEXT NOT NULL,                      -- チャンク原文
+    embedding VECTOR(1024) NOT NULL,            -- Titan Embeddings v2(1024次元)
+    tokens INT NOT NULL,                        -- チャンクのトークン数
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- HNSW近似最近傍インデックス(コサイン類似度)
+CREATE INDEX idx_faq_chunks_embedding ON faq_chunks
+    USING hnsw (embedding vector_cosine_ops);
+
+-- ファイル単位の再インデックス用
+CREATE INDEX idx_faq_chunks_source_path ON faq_chunks (source_path);
+```
+
+**カラム説明**:
+- `id`: チャンクID（主キー、BIGSERIAL）
+- `source_path`: チャンク元のMarkdownファイルパス（再インデックス時の削除キー）
+- `chunk_index`: 同一ファイル内でのチャンク番号
+- `content`: チャンク本文（LLMに渡される原文）
+- `embedding`: 1024次元の埋め込みベクトル（Titan Embeddings v2で生成）
+- `tokens`: トークン数（コスト追跡・チャンクサイズ監視用）
+- `updated_at`: インデックス化日時
+
+**設計方針**:
+- HNSWインデックスによりチャンク数千〜数万件でも高速検索可能
+- `vector_cosine_ops` でコサイン類似度を演算子 `<=>` で利用可能
+- 再インデックス時は `DELETE FROM faq_chunks WHERE source_path = ?` → INSERT で差分更新
+
 ## リレーション
 
 ### ユーザーとプロフィール（1対1）
@@ -132,12 +212,21 @@ CREATE TABLE videos (
 - `profiles.popup_video_id` → `videos.id`（ポップアップ用動画）
 - 動画削除時はNULLに設定（SET NULL）
 
+### ユーザーとチャット履歴（1対多）
+- `chat_messages.user_id` → `users.id`（1ユーザーが複数メッセージ）
+- ユーザー削除時はカスケード削除
+
+### FAQチャンクのリレーション
+- faq_chunksはPostgreSQL側で独立。アプリDBとのFKなし
+- `chat_messages.context_chunks` (JSON) にチャンクIDを記録することで疎結合に参照追跡
+
 ## ER図（概念図）
 
 ```mermaid
 erDiagram
     users ||--|| profiles : "has one"
     users ||--o{ videos : "has many"
+    users ||--o{ chat_messages : "has many"
     profiles }o--|| videos : "thumbnail"
     profiles }o--|| videos : "popup"
 
@@ -182,6 +271,30 @@ erDiagram
         timestamp updated_at
         timestamp deleted_at
     }
+
+    chat_messages {
+        bigint id PK
+        bigint user_id FK
+        enum role
+        text content
+        json context_chunks
+        timestamp created_at
+    }
+```
+
+### Postgres側 faq_chunks（独立DB・参考）
+
+```mermaid
+erDiagram
+    faq_chunks {
+        bigserial id PK
+        varchar source_path
+        int chunk_index
+        text content
+        vector embedding
+        int tokens
+        timestamp updated_at
+    }
 ```
 
 ## インデックス設計
@@ -204,6 +317,15 @@ erDiagram
 - `INDEX (user_id)`: ユーザーの動画一覧取得の高速化
 - `INDEX (status)`: エンコードキュー処理の絞り込み
 - `INDEX (deleted_at)`: ソフトデリート除外クエリの最適化
+
+### chat_messages テーブル
+- `PRIMARY KEY (id)`: 主キー
+- `INDEX (user_id, created_at)`: 直近N件履歴取得の高速化（マルチターン文脈構築で多用）
+
+### faq_chunks テーブル（Postgres）
+- `PRIMARY KEY (id)`: 主キー
+- `HNSW INDEX (embedding)`: pgvectorの近似最近傍検索（コサイン類似度）
+- `INDEX (source_path)`: 再インデックス時のファイル単位DELETE高速化
 
 ## データ削除ポリシー
 

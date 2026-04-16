@@ -219,6 +219,40 @@
 
 ---
 
+### チャットボット（認証必須）
+
+#### POST /chatbot/message (chatbot.message)
+**Controller**: ChatbotController@message
+**Middleware**: auth, throttle:10,1
+**説明**: ユーザーの質問を受け取り、RAG+LLMで生成した応答を返却
+**リクエストボディ**: `{"message": "動画のアップロード方法は？"}` (JSON、2000文字以内)
+**成功時**:
+1. 質問を `chat_messages` に保存 (role=user)
+2. 直近5件の履歴を取得して文脈構築
+3. Titan Embeddings APIで質問をベクトル化
+4. Postgres pgvectorでtop-5チャンクを類似度検索（閾値0.6）
+5. Nova Lite にシステムプロンプト + チャンク + 履歴 + 質問を送信
+6. 応答を `chat_messages` に保存 (role=assistant、context_chunks記録)
+7. JSON `{"message": "応答本文", "context_chunks": [1, 5, 12]}` を返却
+
+**失敗時**:
+- 未認証: 401
+- レート制限超過: 429 Too Many Requests
+- バリデーションエラー(空文字・2000文字超): 422
+- Bedrockエラー: 503 + 「一時的にエラーが発生しました」
+
+---
+
+#### GET /chatbot/history (chatbot.history)
+**Controller**: ChatbotController@history
+**Middleware**: auth
+**説明**: ログインユーザーの会話履歴を取得（ウィジェット初回展開時に使用）
+**クエリパラメータ**: `?limit=20` (最大100)
+**成功時**: JSON `[{id, role, content, created_at}, ...]` を時系列昇順で返却
+**失敗時**: 未認証の場合は401
+
+---
+
 ### 管理者専用ページ
 
 #### GET /admin/users (admin.users.index)
@@ -376,6 +410,7 @@ return redirect()->route('videos.index')
 <?php
 
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Dashboard\ProfileController as DashboardProfileController;
 use App\Http\Controllers\HomeController;
@@ -413,6 +448,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard/videos/upload', [VideoController::class, 'create'])->name('videos.create');
     Route::post('/dashboard/videos', [VideoController::class, 'store'])->name('videos.store');
     Route::delete('/dashboard/videos/{id}', [VideoController::class, 'destroy'])->name('videos.destroy');
+
+    // チャットボット（レート制限付き）
+    Route::prefix('chatbot')->name('chatbot.')->group(function () {
+        Route::post('/message', [ChatbotController::class, 'message'])
+            ->middleware('throttle:10,1')
+            ->name('message');
+        Route::get('/history', [ChatbotController::class, 'history'])->name('history');
+    });
 });
 
 // ===== 管理者専用ページ（管理者のみ） =====

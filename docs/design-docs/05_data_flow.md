@@ -211,6 +211,67 @@ sequenceDiagram
     end
 ```
 
+### 7. チャットボット質問応答フロー
+
+```mermaid
+sequenceDiagram
+    participant U as ユーザー
+    participant L as Laravel (ChatbotController)
+    participant S as ChatbotService
+    participant MySQL as MySQL (chat_messages)
+    participant R as RagService
+    participant T as Bedrock Titan
+    participant PG as Postgres (faq_chunks)
+    participant N as Bedrock Nova Lite
+
+    U->>L: POST /chatbot/message (質問)
+    L->>L: レート制限チェック(10req/min)
+    L->>L: バリデーション(2000文字以内)
+    L->>S: handle(user, question)
+    S->>MySQL: chat_messages INSERT (role=user)
+    S->>MySQL: 直近5件の履歴取得 (文脈用)
+    S->>R: retrieve(question)
+    R->>T: Embed API (質問→1024次元ベクトル)
+    T->>R: embedding[]
+    R->>PG: SELECT ... ORDER BY embedding <=> $1 LIMIT 5
+    PG->>R: top-5 chunks
+    R->>R: 類似度閾値(0.6)でフィルタ
+    alt ヒットあり
+        R->>S: top-3 chunks
+        S->>N: Invoke (system prompt + chunks + 履歴5件 + 質問)
+        N->>S: 応答テキスト
+    else ヒットなし
+        S->>S: 「わかりません」固定応答生成
+    end
+    S->>MySQL: chat_messages INSERT (role=assistant, context_chunks)
+    S->>L: response
+    L->>U: JSON {message, context_chunks}
+```
+
+### 8. FAQインデックス化フロー
+
+```mermaid
+sequenceDiagram
+    participant Admin as 開発者
+    participant Art as php artisan chatbot:index
+    participant FS as docs/*.md
+    participant T as Bedrock Titan
+    participant PG as Postgres (faq_chunks)
+
+    Admin->>Art: コマンド実行
+    Art->>FS: Markdownファイル全取得
+    loop 各ファイル
+        Art->>Art: 見出し単位 + 500トークン制限でチャンク分割
+        Art->>Art: オーバーラップ100トークン付与
+        loop 各チャンク
+            Art->>T: Embed API
+            T->>Art: 1024次元ベクトル
+            Art->>PG: INSERT (source_path, chunk_index, content, embedding, tokens)
+        end
+    end
+    Art->>Admin: 完了メッセージ (件数・トークン消費)
+```
+
 ## フロー詳細
 
 ### ユーザー登録フロー
@@ -324,6 +385,41 @@ sequenceDiagram
 
 ---
 
+### チャットボット質問応答フロー
+**トリガー**: ユーザーがチャットウィジェットで質問送信
+**処理ステップ**:
+1. レート制限チェック（10req/min per user）
+2. バリデーション（auth middleware、2000文字以内）
+3. ユーザー質問を `chat_messages` に保存（role=user）
+4. 直近5件の履歴を `chat_messages` から取得（マルチターン文脈用）
+5. 質問を Titan Embeddings v2 でベクトル化（1024次元）
+6. Postgres pgvector で top-5 チャンクをコサイン類似度検索
+7. 類似度 < 0.6 のチャンクを除外
+8. ヒットあり: top-3 をコンテキストとして Nova Lite に送信
+9. ヒットなし: 「わかりません、具体的に教えてください」の固定応答
+10. 応答を `chat_messages` に保存（role=assistant、context_chunks に参照ID記録）
+11. JSON で応答を返却
+
+**成功時**: ユーザーに回答がストリーム表示
+**失敗時**: 「一時的にエラーが発生しました」と表示、ログに詳細記録
+
+---
+
+### FAQインデックス化フロー
+**トリガー**: `php artisan chatbot:index` コマンド実行（開発者が手動 or 定期実行）
+**処理ステップ**:
+1. `docs/` 配下の `.md` ファイルを再帰的に走査
+2. 各ファイルを見出し(`##`)単位で分割
+3. 長いセクションは500トークンごとに分割、前後100トークンをオーバーラップ
+4. 各チャンクに対して Bedrock Titan Embeddings API を呼び出し
+5. `(source_path, chunk_index, content, embedding, tokens)` を Postgres `faq_chunks` にINSERT
+6. 完了時にチャンク数・総トークン消費を表示
+
+**再実行時の差分更新**: `source_path` が同じチャンクを DELETE → INSERT で同期
+**典型的な処理時間**: 300チャンクで約5〜10分（Bedrockレート制限依存）
+
+---
+
 ## 外部連携
 
 ### AWS S3
@@ -351,6 +447,32 @@ sequenceDiagram
   - エンコード失敗時: 最大3回リトライ
   - 3回失敗後: status を `failed` に更新、error_messageを保存
   - ユーザーに失敗通知を表示
+
+---
+
+### AWS Bedrock（LLM / 埋め込み）
+- **連携内容**: チャットボットの回答生成・ベクトル化
+- **使用モデル**:
+  - `amazon.nova-lite-v1:0`: 質問応答のLLM
+  - `amazon.titan-embed-text-v2:0`: テキストの埋め込みベクトル生成
+- **認証**: IAMロールベース（`bedrock:InvokeModel` 権限）
+- **リージョン**: `ap-northeast-1`（東京）
+- **タイムアウト**: 10秒
+- **エラー処理**:
+  - スロットリング時: 指数バックオフで3回リトライ
+  - 致命的エラー時: ユーザーに汎用エラーメッセージ、詳細はCloudWatchに記録
+
+---
+
+### PostgreSQL + pgvector（チャットボット専用DB）
+- **連携内容**: FAQチャンクの埋め込みベクトル保持・類似度検索
+- **接続**: Laravel の `pgsql_chatbot` 接続（`config/database.php`）
+- **テーブル**: `faq_chunks`（HNSWインデックス付き）
+- **検索クエリ**: `ORDER BY embedding <=> $queryVector LIMIT 5`
+- **運用**: 本番はスナップショット運用（利用時のみ復元）
+- **エラー処理**:
+  - 接続エラー: チャットボット機能を一時無効化、他機能は影響なし
+  - 検索エラー: 「わかりません」固定応答に fallback
 
 ---
 

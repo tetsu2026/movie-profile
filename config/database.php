@@ -97,6 +97,20 @@ return [
             'sslmode' => 'prefer',
         ],
 
+        'pgsql_chatbot' => [
+            'driver' => 'pgsql',
+            'host' => env('DB_CHATBOT_HOST', '127.0.0.1'),
+            'port' => env('DB_CHATBOT_PORT', '5432'),
+            'database' => env('DB_CHATBOT_DATABASE', 'chatbot'),
+            'username' => env('DB_CHATBOT_USERNAME', 'chatbot'),
+            'password' => env('DB_CHATBOT_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),

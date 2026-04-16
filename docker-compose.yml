@@ -74,10 +74,27 @@ services:
     networks:
       - movie_prf_network
 
+  # PostgreSQL (チャットボット用・pgvector)
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: movie_prf_postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: chatbot
+      POSTGRES_USER: chatbot
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - movie_prf_network
+
 volumes:
   db_data:
     driver: local
   minio_data:
+    driver: local
+  postgres_data:
     driver: local
 
 networks:

@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Services\Chatbot\BedrockClient;
+use App\Services\Chatbot\LLMClientInterface;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -11,7 +13,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(LLMClientInterface::class, BedrockClient::class);
     }
 
     /**

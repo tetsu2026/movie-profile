@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Dashboard\ProfileController as DashboardProfileController;
 use App\Http\Controllers\HomeController;
@@ -43,6 +44,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard/videos/upload', [VideoController::class, 'create'])->name('videos.create');
     Route::post('/dashboard/videos', [VideoController::class, 'store'])->name('videos.store');
     Route::delete('/dashboard/videos/{id}', [VideoController::class, 'destroy'])->name('videos.destroy');
+});
+
+// チャットボット（認証必須）
+Route::middleware('auth')->prefix('chatbot')->name('chatbot.')->group(function () {
+    Route::post('/message', [ChatbotController::class, 'message'])
+        ->middleware('throttle:10,1')
+        ->name('message');
+    Route::get('/history', [ChatbotController::class, 'history'])->name('history');
 });
 
 // 管理者専用ページ（管理者のみ）

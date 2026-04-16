@@ -45,7 +45,6 @@ composer require aws/aws-sdk-php
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
 AWS_DEFAULT_REGION=ap-northeast-1
-BEDROCK_LLM_PROVIDER=nova
 BEDROCK_MODEL_ID=amazon.nova-lite-v1:0
 BEDROCK_EMBED_MODEL_ID=amazon.titan-embed-text-v2:0
 

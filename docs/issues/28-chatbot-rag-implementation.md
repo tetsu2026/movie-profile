@@ -46,7 +46,7 @@ AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
 AWS_DEFAULT_REGION=ap-northeast-1
 BEDROCK_LLM_PROVIDER=nova
-BEDROCK_NOVA_MODEL_ID=amazon.nova-lite-v1:0
+BEDROCK_MODEL_ID=amazon.nova-lite-v1:0
 BEDROCK_EMBED_MODEL_ID=amazon.titan-embed-text-v2:0
 
 DB_CHATBOT_CONNECTION=pgsql_chatbot
@@ -121,7 +121,7 @@ interface LLMClientInterface {
 
 #### app/Services/Chatbot/BedrockClient.php (NovaClient実装)
 - `generate()` で `bedrock-runtime` の `InvokeModel` 呼び出し
-- `model_id` は `config('services.bedrock.nova_model_id')`
+- `model_id` は `config('services.bedrock.model_id')`
 
 #### app/Services/Chatbot/EmbeddingService.php
 - Titan Embeddings v2 呼び出し

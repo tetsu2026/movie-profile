@@ -28,6 +28,14 @@ return [
         'key' => env('RESEND_KEY'),
     ],
 
+    'bedrock' => [
+        'key' => env('BEDROCK_ACCESS_KEY_ID'),
+        'secret' => env('BEDROCK_SECRET_ACCESS_KEY'),
+        'region' => env('BEDROCK_REGION', 'ap-northeast-1'),
+        'model_id' => env('BEDROCK_MODEL_ID', 'amazon.nova-lite-v1:0'),
+        'embed_model_id' => env('BEDROCK_EMBED_MODEL_ID', 'amazon.titan-embed-text-v2:0'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

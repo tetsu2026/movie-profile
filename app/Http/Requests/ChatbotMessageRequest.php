@@ -20,7 +20,7 @@ class ChatbotMessageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'message' => ['required', 'string', 'max:2000'],
+            'message' => ['required', 'string', 'max:100'],
         ];
     }
 }

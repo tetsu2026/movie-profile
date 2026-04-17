@@ -222,28 +222,27 @@ sequenceDiagram
     participant R as RagService
     participant T as Bedrock Titan
     participant PG as Postgres (faq_chunks)
-    participant N as Bedrock Nova Lite
+    participant N as Bedrock Converse API
 
     U->>L: POST /chatbot/message (質問)
     L->>L: レート制限チェック(10req/min)
-    L->>L: バリデーション(2000文字以内)
+    L->>L: バリデーション(100文字以内)
     L->>S: handle(user, question)
     S->>MySQL: chat_messages INSERT (role=user)
-    S->>MySQL: 直近5件の履歴取得 (文脈用)
+    S->>MySQL: 直近5件の履歴取得 (フォールバック応答ペアを除外)
     S->>R: retrieve(question)
     R->>T: Embed API (質問→1024次元ベクトル)
     T->>R: embedding[]
-    R->>PG: SELECT ... ORDER BY embedding <=> $1 LIMIT 5
-    PG->>R: top-5 chunks
-    R->>R: 類似度閾値(0.6)でフィルタ
+    R->>PG: SELECT ... WHERE similarity >= 0.3 ORDER BY similarity DESC LIMIT 3
+    PG->>R: top-3 chunks
     alt ヒットあり
         R->>S: top-3 chunks
-        S->>N: Invoke (system prompt + chunks + 履歴5件 + 質問)
+        S->>N: Converse API (system prompt + chunks + 履歴 + 質問)
         N->>S: 応答テキスト
     else ヒットなし
-        S->>S: 「わかりません」固定応答生成
+        S->>S: 「情報が見つかりませんでした」固定応答 (LLM呼び出しなし)
     end
-    S->>MySQL: chat_messages INSERT (role=assistant, context_chunks)
+    S->>MySQL: chat_messages INSERT (role=assistant, context_chunks: ヒット時はID配列/ヒットなしはnull)
     S->>L: response
     L->>U: JSON {message, context_chunks}
 ```
@@ -261,15 +260,21 @@ sequenceDiagram
     Admin->>Art: コマンド実行
     Art->>FS: Markdownファイル全取得
     loop 各ファイル
-        Art->>Art: 見出し単位 + 500トークン制限でチャンク分割
-        Art->>Art: オーバーラップ100トークン付与
-        loop 各チャンク
-            Art->>T: Embed API
-            T->>Art: 1024次元ベクトル
-            Art->>PG: INSERT (source_path, chunk_index, content, embedding, tokens)
+        Art->>Art: ファイル更新日時 vs faq_chunks.updated_at を比較
+        alt 変更あり or 新規ファイル
+            Art->>PG: 該当source_pathのチャンクをDELETE
+            Art->>Art: 見出し単位 + 500トークン制限でチャンク分割
+            Art->>Art: オーバーラップ100トークン付与
+            loop 各チャンク
+                Art->>T: Embed API
+                T->>Art: 1024次元ベクトル
+                Art->>PG: INSERT (source_path, chunk_index, content, embedding, tokens)
+            end
+        else 変更なし
+            Art->>Art: スキップ
         end
     end
-    Art->>Admin: 完了メッセージ (件数・トークン消費)
+    Art->>Admin: 完了メッセージ (追加/更新件数・スキップ件数・トークン消費)
 ```
 
 ## フロー詳細
@@ -389,34 +394,41 @@ sequenceDiagram
 **トリガー**: ユーザーがチャットウィジェットで質問送信
 **処理ステップ**:
 1. レート制限チェック（10req/min per user）
-2. バリデーション（auth middleware、2000文字以内）
+2. バリデーション（auth middleware、100文字以内）
 3. ユーザー質問を `chat_messages` に保存（role=user）
 4. 直近5件の履歴を `chat_messages` から取得（マルチターン文脈用）
+   - フォールバック応答（`context_chunks IS NULL`）と、その直前のユーザー質問をペアで除外
+   - 回答できなかった会話がLLMの次回応答に混ざるのを防ぐ
 5. 質問を Titan Embeddings v2 でベクトル化（1024次元）
-6. Postgres pgvector で top-5 チャンクをコサイン類似度検索
-7. 類似度 < 0.6 のチャンクを除外
-8. ヒットあり: top-3 をコンテキストとして Nova Lite に送信
-9. ヒットなし: 「わかりません、具体的に教えてください」の固定応答
-10. 応答を `chat_messages` に保存（role=assistant、context_chunks に参照ID記録）
-11. JSON で応答を返却
+6. Postgres pgvector でコサイン類似度検索（類似度 >= 0.3 のチャンクを top-3 取得）
+7. ヒットあり: top-3 をコンテキストとして Bedrock Converse API に送信（モデルは `BEDROCK_MODEL_ID` で設定）
+8. ヒットなし: 「情報が見つかりませんでした」の固定応答（LLMは呼び出さない）
+9. 応答を `chat_messages` に保存（role=assistant、ヒット時は context_chunks に参照ID記録、ヒットなしは null）
+10. JSON で応答を返却
 
-**成功時**: ユーザーに回答がストリーム表示
+**成功時**: ユーザーに回答が表示
 **失敗時**: 「一時的にエラーが発生しました」と表示、ログに詳細記録
 
 ---
 
 ### FAQインデックス化フロー
 **トリガー**: `php artisan chatbot:index` コマンド実行（開発者が手動 or 定期実行）
-**処理ステップ**:
-1. `docs/` 配下の `.md` ファイルを再帰的に走査
-2. 各ファイルを見出し(`##`)単位で分割
-3. 長いセクションは500トークンごとに分割、前後100トークンをオーバーラップ
-4. 各チャンクに対して Bedrock Titan Embeddings API を呼び出し
-5. `(source_path, chunk_index, content, embedding, tokens)` を Postgres `faq_chunks` にINSERT
-6. 完了時にチャンク数・総トークン消費を表示
 
-**再実行時の差分更新**: `source_path` が同じチャンクを DELETE → INSERT で同期
-**典型的な処理時間**: 300チャンクで約5〜10分（Bedrockレート制限依存）
+**実行モード**:
+- **差分更新モード（引数なし）**: `docs/` 配下の全 `.md` ファイルを走査し、ファイルの mtime が `faq_chunks.updated_at` より新しいファイルのみ再インデックス
+- **個別指定モード（`--path=xxx.md`）**: 指定ファイルのみインデックス化（差分判定はせず常に再生成）
+- **全再生成モード（`--fresh`）**: `faq_chunks` 全件 DELETE 後、全 `.md` を再インデックス
+
+**処理ステップ（対象ファイルごと）**:
+1. ファイル内容を読み込み、Markdown を見出し(`##`)単位で分割
+2. 長いセクションは500トークンごとに分割、前後100トークンをオーバーラップ
+3. 既存の同 `source_path` チャンクを DELETE
+4. 各チャンクに対して Bedrock Titan Embeddings API を呼び出し
+5. `(source_path, chunk_index, content, embedding, tokens, updated_at)` を Postgres `faq_chunks` に INSERT
+6. 完了時にチャンク数・総トークン消費・スキップファイル数を表示
+
+**差分判定ロジック**: 各ファイルについて、`faq_chunks` に該当 `source_path` の行がない、または最新の `updated_at` が `filemtime()` より古ければ再インデックス対象
+**典型的な処理時間**: 300チャンクで約5〜10分（Bedrockレート制限依存）。差分更新時は変更ファイル数に比例
 
 ---
 
@@ -453,26 +465,27 @@ sequenceDiagram
 ### AWS Bedrock（LLM / 埋め込み）
 - **連携内容**: チャットボットの回答生成・ベクトル化
 - **使用モデル**:
-  - `amazon.nova-lite-v1:0`: 質問応答のLLM
-  - `amazon.titan-embed-text-v2:0`: テキストの埋め込みベクトル生成
-- **認証**: IAMロールベース（`bedrock:InvokeModel` 権限）
-- **リージョン**: `ap-northeast-1`（東京）
+  - LLM: `.env` の `BEDROCK_MODEL_ID` で切替可能（既定: `amazon.nova-lite-v1:0`）。Bedrock Converse API を使用しているため、Anthropic Claude・Amazon Nova・Meta Llama 等のモデル間差し替えはコード変更不要
+  - 埋め込み: `BEDROCK_EMBED_MODEL_ID`（既定: `amazon.titan-embed-text-v2:0`、1024次元）
+- **認証**: アクセスキー方式（`BEDROCK_ACCESS_KEY_ID` / `BEDROCK_SECRET_ACCESS_KEY`）。IAMポリシーで `bedrock:InvokeModel` 権限付与
+- **リージョン**: `ap-northeast-1`（東京）。Claude 等一部モデルは Inference Profile（`jp.` / `apac.` プレフィックス）経由で利用
 - **タイムアウト**: 10秒
 - **エラー処理**:
   - スロットリング時: 指数バックオフで3回リトライ
   - 致命的エラー時: ユーザーに汎用エラーメッセージ、詳細はCloudWatchに記録
+  - Anthropic系モデルは AWS コンソールで Use Case Details 申請が必要。未申請時は `ResourceNotFoundException` になるため、ログで検知して汎用エラー応答
 
 ---
 
 ### PostgreSQL + pgvector（チャットボット専用DB）
 - **連携内容**: FAQチャンクの埋め込みベクトル保持・類似度検索
 - **接続**: Laravel の `pgsql_chatbot` 接続（`config/database.php`）
-- **テーブル**: `faq_chunks`（HNSWインデックス付き）
-- **検索クエリ**: `ORDER BY embedding <=> $queryVector LIMIT 5`
-- **運用**: 本番はスナップショット運用（利用時のみ復元）
+- **テーブル**: `faq_chunks`（HNSWインデックス付き `vector_cosine_ops`）
+- **検索クエリ**: `1 - (embedding <=> $queryVec)` を類似度として算出し、`>= 0.3` のチャンクを `ORDER BY similarity DESC LIMIT 3` で取得
+- **運用**: 本番はスナップショット運用（利用時のみ復元）。詳細は `docs/operations/postgres_snapshot_operation.md`
 - **エラー処理**:
   - 接続エラー: チャットボット機能を一時無効化、他機能は影響なし
-  - 検索エラー: 「わかりません」固定応答に fallback
+  - 検索エラー: 「情報が見つかりませんでした」固定応答に fallback
 
 ---
 

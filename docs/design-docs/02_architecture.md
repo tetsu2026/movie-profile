@@ -9,7 +9,7 @@
 - **インフラ**: AWS (EC2 + S3 + RDS + Bedrock) + CloudFormation
 - **ローカル開発環境**: Docker + Docker Compose
 - **動画処理**: FFmpeg
-- **AI/LLM**: AWS Bedrock (Amazon Nova Lite + Titan Embeddings v2)
+- **AI/LLM**: AWS Bedrock Converse API（LLMは `BEDROCK_MODEL_ID` で切替可能、既定 Amazon Nova Lite）+ Titan Embeddings v2
 - **ライブラリ**: getID3（動画メタデータ取得）, @tailwindcss/forms（フォームスタイル）, aws/aws-sdk-php（Bedrock呼び出し）
 - **テスト**: Pest（ユニット/フィーチャーテスト）, Playwright（E2Eテスト）
 - **その他**: CloudWatch (監視・ログ)
@@ -31,7 +31,7 @@ graph TB
 
         S3[S3バケット<br/>動画ストレージ]
         CloudWatch[CloudWatch<br/>ログ・監視]
-        Bedrock[AWS Bedrock<br/>Nova Lite + Titan Embed]
+        Bedrock[AWS Bedrock<br/>Converse API + Titan Embed]
     end
 
     Browser -->|HTTPS| EC2
@@ -100,19 +100,19 @@ graph LR
     %% ===== 応答生成 =====
     subgraph Generation[応答生成]
         direction LR
-        Bedrock[BedrockClient] --> Nova[Nova Lite]
+        Bedrock[BedrockClient] --> Converse[Bedrock Converse API<br/>BEDROCK_MODEL_ID]
     end
 
     %% ===== 接続 =====
     Service -->|検索依頼| Rag
-    Rag -->|top-3チャンク| Service
+    Rag -->|top-3チャンク<br/>類似度>=0.3| Service
 
     Service -->|チャンク+履歴+質問| Bedrock
-    Nova -->|応答| Service
+    Converse -->|応答| Service
 
     %% ===== スタイル =====
     style Titan fill:#8C4FFF
-    style Nova fill:#8C4FFF
+    style Converse fill:#8C4FFF
     style MySQL fill:#527FFF
     style Postgres fill:#336791
 ```
@@ -190,16 +190,16 @@ graph LR
   - 追加コストが最小限
 
 ### AI/LLM（チャットボット）
-- **AWS Bedrock**:
-  - 既存AWS環境とIAMで統一管理
-  - 複数のLLMモデルを同一APIで切替可能
+- **AWS Bedrock Converse API**:
+  - 既存AWS環境とIAMで統一管理（アクセスキー方式）
+  - Converse API によりモデル固有のリクエスト形式を意識せず、`BEDROCK_MODEL_ID` 一つで Amazon Nova・Anthropic Claude・Meta Llama 等へ差し替え可能
+  - Anthropic 系モデルは AWS コンソールで Use Case Details 申請が必要、Inference Profile（`jp.` / `apac.` プレフィックス）経由で利用
   - 東京リージョン対応で低レイテンシ
 
-- **Amazon Nova Lite**:
+- **LLM（既定: Amazon Nova Lite `amazon.nova-lite-v1:0`）**:
   - Claude Haikuの1/10以下の料金（入力$0.06/1M、出力$0.24/1M）
   - 日本語FAQ回答には十分な品質
   - Function Calling対応（Phase 2でTool Use活用時）
-  - `LLMClientInterface` で実装分離し、将来Claude等に差し替え可能
 
 - **Amazon Titan Embeddings v2**:
   - 1024次元ベクトル、日本語対応
@@ -222,7 +222,7 @@ graph LR
 - **S3ストレージ**: $1.00/月（想定: 動画50GB程度）
 - **S3データ転送**: $1.00/月（想定: 100GB転送）
 - **CloudWatch**: $2.00/月（ログ・メトリクス）
-- **Bedrock (Nova Lite + Titan)**: $1.00〜$3.00/月（100ユーザー×50QA想定）
+- **Bedrock (Converse API + Titan)**: $1.00〜$3.00/月（100ユーザー×50QA想定、Nova Lite 既定）
 - **合計**: **$27.00〜$29.00/月**
 
 ### 開発環境

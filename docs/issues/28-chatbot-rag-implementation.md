@@ -118,9 +118,10 @@ interface LLMClientInterface {
 }
 ```
 
-#### app/Services/Chatbot/BedrockClient.php (NovaClient実装)
-- `generate()` で `bedrock-runtime` の `InvokeModel` 呼び出し
+#### app/Services/Chatbot/BedrockClient.php
+- `generate()` で `bedrock-runtime` の **Converse API** を呼び出し（モデル固有形式に依存しないため、`BEDROCK_MODEL_ID` の変更だけで Nova / Claude / Llama 等へ差し替え可能）
 - `model_id` は `config('services.bedrock.model_id')`
+- Anthropic系モデルは AWS コンソールで Use Case Details 申請が必要
 
 #### app/Services/Chatbot/EmbeddingService.php
 - Titan Embeddings v2 呼び出し
@@ -131,17 +132,17 @@ interface LLMClientInterface {
   - 質問をEmbeddingServiceでベクトル化
   - Postgres `faq_chunks` にpgvector演算子`<=>`でコサイン類似度検索
   - `1 - (embedding <=> $queryVec)` が類似度（0〜1、高いほど類似）
-  - 類似度0.6未満のチャンクを除外
+  - 類似度0.3未満のチャンクを除外
   - top-3を返却
 
 #### app/Services/Chatbot/ChatbotService.php
 - `handle(User $user, string $question): array` メソッド
   1. `chat_messages` にユーザー発言を保存
-  2. 直近5件の履歴取得
+  2. 直近5件の履歴取得（フォールバック応答 `context_chunks IS NULL` とその直前のユーザー質問をペアで除外）
   3. `RagService::retrieve()` でチャンク取得
   4. ヒットあり: システムプロンプト + チャンク + 履歴 + 質問で `LLMClient::generate()`
-  5. ヒットなし: 固定応答「わかりません、具体的に教えてください」
-  6. `chat_messages` にアシスタント応答保存（context_chunks記録）
+  5. ヒットなし: 「情報が見つかりませんでした」固定応答（LLMは呼び出さない）
+  6. `chat_messages` にアシスタント応答保存（ヒット時は context_chunks に参照ID配列を記録、ヒットなしは null）
   7. `['message' => ..., 'context_chunks' => ...]` を返却
 
 ### 8. Controller実装
@@ -154,7 +155,7 @@ interface LLMClientInterface {
   - `auth()->user()->chatMessages()->orderBy('created_at')->limit($limit)->get()` をJSON返却
 
 #### app/Http/Requests/ChatbotMessageRequest.php
-- `message`: `required|string|max:2000`
+- `message`: `required|string|max:100`
 
 ### 9. ルーティング追加
 
@@ -176,14 +177,19 @@ Route::middleware('auth')->group(function () {
 ```bash
 php artisan make:command ChatbotIndexCommand
 ```
-- シグネチャ: `chatbot:index {--fresh : 既存チャンクを全削除してから実行}`
+- シグネチャ: `chatbot:index {--fresh : 既存チャンクを全削除してから全再生成} {--path= : 指定ファイルのみインデックス化}`
+- 実行モード:
+  - **差分更新モード（引数なし）**: 各ファイルの mtime と `faq_chunks.updated_at` を比較し、更新のあるファイル（または新規ファイル）のみ再インデックス
+  - **個別指定モード（`--path=xxx.md`）**: 指定ファイルのみインデックス化（差分判定はせず常に再生成）
+  - **全再生成モード（`--fresh`）**: `faq_chunks` 全件 DELETE 後、全 `.md` を再インデックス
 - 処理:
-  1. `docs/` 配下の `.md` ファイルを再帰取得
+  1. 対象ファイルを決定（上記モード別）
   2. Markdownを `##` 見出し単位で分割
   3. 長いセクションは500トークンごとに分割、前後100トークンのオーバーラップ
-  4. 各チャンクをTitan Embeddingsでベクトル化
-  5. Postgres `faq_chunks` にINSERT（`--fresh`時は既存を削除）
-  6. 完了ログ: チャンク数・トークン消費
+  4. 対象ファイルごとに既存の同 `source_path` チャンクを DELETE
+  5. 各チャンクをTitan Embeddingsでベクトル化
+  6. Postgres `faq_chunks` にINSERT（`updated_at` も更新）
+  7. 完了ログ: 追加/更新チャンク数・総トークン消費・スキップファイル数
 
 ### 11. フロントエンド実装
 
@@ -193,6 +199,7 @@ php artisan make:command ChatbotIndexCommand
 - 展開パネル（400x600px）
   - ヘッダー（タイトル・閉じるボタン）
   - 会話履歴エリア（スクロール可、`role="log" aria-live="polite"`）
+  - **初期案内メッセージを常時表示**（「操作方法（動画アップロードやプロフィール編集など）についてご質問ください。AIがお答えします。」）
   - 入力エリア（textarea + 送信ボタン）
 - 初回展開時に `GET /chatbot/history` で履歴取得
 - 送信時に `POST /chatbot/message` で応答取得
@@ -220,14 +227,17 @@ php artisan make:command ChatbotIndexCommand
 - [ ] `php artisan chatbot:index` で `docs/` 配下のMarkdownがチャンク化され `faq_chunks` にINSERTされる
 - [ ] ログイン後の全画面右下にチャットボタンが表示される
 - [ ] チャットボタンクリックで展開パネルが表示される
-- [ ] 質問送信で Nova Lite からの応答が表示される
+- [ ] 質問送信で Bedrock Converse API（既定 Nova Lite）からの応答が表示される
 - [ ] 会話履歴が `chat_messages` に保存される
 - [ ] マルチターン会話で直近5件の文脈が参照される（「それは何？」のような指示語が解釈される）
-- [ ] 類似度0.6未満のときは「わかりません」応答が返る
+- [ ] フォールバック応答ペア（`context_chunks IS NULL`）は次回以降の履歴から除外される
+- [ ] 類似度0.3未満のときは「情報が見つかりませんでした」固定応答が返る（LLM呼び出しなし）
+- [ ] ウィジェット展開時に初期案内メッセージが常時表示される
+- [ ] `chatbot:index` が差分更新・個別指定・全再生成の3モードで動作する
+- [ ] `.env` の `BEDROCK_MODEL_ID` を変更するだけで LLM モデルを切替できる
 - [ ] レート制限 10req/min が動作する
-- [ ] 2000文字超の入力がバリデーションで弾かれる
+- [ ] 100文字超の入力がバリデーションで弾かれる
 - [ ] 未認証ユーザーは `/chatbot/*` にアクセスできない（401）
-- [ ] LLMClientInterfaceによりモデル差し替えが可能な構造になっている
 - [ ] Feature/Unitテストが通過する
 - [ ] セキュリティヘッダ・XSS対策・CSRF保護が機能する
 
@@ -238,7 +248,7 @@ php artisan make:command ChatbotIndexCommand
 ### Feature テスト
 - `tests/Feature/Chatbot/ChatbotControllerTest.php`
   - 認証必須の確認
-  - バリデーション（空・2000文字超）
+  - バリデーション（空・100文字超）
   - レート制限
   - 正常応答
 

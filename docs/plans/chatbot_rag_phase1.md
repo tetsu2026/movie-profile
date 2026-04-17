@@ -19,7 +19,7 @@
 
 **採用**: **AWS Bedrock + Amazon Nova Lite + Amazon Titan Embeddings v2**
 
-**LLM差し替え設計**: `LLMClientInterface` を定義し、Nova/Claude/OpenAI等を`.env`で切替可能な実装にする。Phase 1では `NovaClient` のみ実装、将来他モデルに差し替える場合もService層に影響を与えない。
+**LLM差し替え設計**: `LLMClientInterface` を定義し、実装は `BedrockClient`（Bedrock Converse API 経由）のみ。モデル切替は `.env` の `BEDROCK_MODEL_ID` を変更するだけで Nova / Claude / Llama 等に差し替え可能（Converse API がモデル固有のリクエスト形式差異を吸収するため、PHPコード変更不要）。
 
 理由:
 - AWS既存環境(EC2/S3/RDS)とIAMで統一管理
@@ -47,9 +47,11 @@
         ↓
 [RagService] ── EmbeddingService (Titan) → 質問を1024次元ベクトル化
         ↓
-[FaqChunk全件取得 → PHPでコサイン類似度計算 → top-3抽出]
-        ↓ (類似度0.6以上なら)
-[BedrockClient (Nova Lite)] ← システムプロンプト + top-3チャンク + 直近5件履歴 + 質問
+[Postgres pgvector でコサイン類似度検索 → 閾値0.3・top-3抽出]
+        ↓ (ヒットあり)                                       ↓ (ヒットなし)
+[BedrockClient (Converse API / BEDROCK_MODEL_ID)]            [固定応答「情報が見つかりませんでした」]
+  ← システムプロンプト + top-3チャンク                         (LLM呼び出さず、context_chunks=NULL で保存)
+    + 直近5件履歴(フォールバックペア除外) + 質問
         ↓
 [ChatMessage に保存して返却]
 ```
@@ -81,7 +83,7 @@
 | `app/Services/Chatbot/ChatbotService.php` | 新規 | オーケストレーション |
 | `app/Services/Chatbot/RagService.php` | 新規 | ベクトル検索 |
 | `app/Services/Chatbot/EmbeddingService.php` | 新規 | Titan呼び出し |
-| `app/Services/Chatbot/BedrockClient.php` | 新規 | Nova Lite呼び出し |
+| `app/Services/Chatbot/BedrockClient.php` | 新規 | Bedrock Converse API 呼び出し（`BEDROCK_MODEL_ID` で Nova / Claude / Llama 切替可能）|
 | `app/Console/Commands/ChatbotIndexCommand.php` | 新規 | **FAQインデックス化バッチ** (`php artisan chatbot:index` で`docs/*.md`をチャンク分割→Titan埋め込み生成→Postgres `faq_chunks`に投入) |
 | `app/Models/ChatMessage.php` | 新規 | 会話履歴 |
 | `app/Models/FaqChunk.php` | 新規 | チャンク+ベクトル |
@@ -146,7 +148,7 @@ INDEX(source_path)
 - `auth` middleware必須
 - レート制限: `throttle:10,1`(10req/min per user)
 - プロンプトインジェクション対策: ユーザー入力を `<user_question>` タグで分離
-- 入力上限: 2000文字
+- 入力上限: 100文字
 - 出力上限: 500トークン
 - Bedrockクレデンシャルは `.env` → `config/services.php` 経由、コードにハードコード禁止
 - 応答に含める情報はRAGヒットチャンクのみ(ユーザーDBアクセスはPhase 2でTool Use導入時)

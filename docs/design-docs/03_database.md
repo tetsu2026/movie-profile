@@ -152,12 +152,13 @@ CREATE TABLE chat_messages (
 - `user_id`: 発言ユーザーID（外部キー）
 - `role`: 発言者ロール（`user`: ユーザー質問 / `assistant`: ボット応答）
 - `content`: メッセージ本文
-- `context_chunks`: ボット応答時に参照したFAQチャンクIDの配列（デバッグ・精度検証用）
+- `context_chunks`: ボット応答時に参照したFAQチャンクIDの配列（デバッグ・精度検証用）。ヒットなし（フォールバック応答）の場合は `NULL` を格納し、フォールバック判別キーとして兼用
 - `created_at`: メッセージ作成日時
 
 **設計方針**:
 - `updated_at` / `deleted_at` は持たない（追記のみ、編集・論理削除しない）
 - 複合インデックス `(user_id, created_at)` で「特定ユーザーの直近N件取得」を高速化（マルチターン会話の文脈構築で多用）
+- 履歴取得時は `context_chunks IS NULL` のアシスタントメッセージ（フォールバック応答）とその直前のユーザー質問をペアで除外し、回答できなかった会話が次のLLM応答を汚染しないよう設計
 
 ### faq_chunks テーブル（PostgreSQL側）
 
@@ -194,8 +195,9 @@ CREATE INDEX idx_faq_chunks_source_path ON faq_chunks (source_path);
 
 **設計方針**:
 - HNSWインデックスによりチャンク数千〜数万件でも高速検索可能
-- `vector_cosine_ops` でコサイン類似度を演算子 `<=>` で利用可能
+- `vector_cosine_ops` でコサイン類似度を演算子 `<=>` で利用可能（`1 - (embedding <=> $queryVec)` を類似度として算出、閾値 0.3、top-3 取得）
 - 再インデックス時は `DELETE FROM faq_chunks WHERE source_path = ?` → INSERT で差分更新
+- 差分判定には `updated_at` とファイルの `mtime` を比較し、変更ファイルのみ再生成（`php artisan chatbot:index` 引数なし時の既定動作）
 
 ## リレーション
 

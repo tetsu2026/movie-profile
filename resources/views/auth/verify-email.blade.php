@@ -10,20 +10,10 @@
         </div>
     @endif
 
-    <div class="flex items-center justify-between gap-4">
-        <form method="POST" action="{{ route('verification.send') }}">
-            @csrf
-            <x-primary-button>
-                再送信
-            </x-primary-button>
-        </form>
-
-        <form method="POST" action="{{ route('logout') }}">
-            @csrf
-            <button type="submit"
-                    class="text-sm text-gray-400 hover:text-gray-700 transition-colors duration-150 cursor-pointer">
-                ログアウト
-            </button>
-        </form>
-    </div>
+    <form method="POST" action="{{ route('verification.send') }}" class="flex justify-center">
+        @csrf
+        <x-primary-button>
+            再送信する
+        </x-primary-button>
+    </form>
 </x-guest-layout>

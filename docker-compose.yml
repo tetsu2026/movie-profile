@@ -26,9 +26,9 @@ services:
       - ./docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini
     environment:
       - DB_HOST=db
-      - DB_PORT=3306
-      - DB_USERNAME=root
-      - DB_PASSWORD=root
+      - DB_PORT=5432
+      - DB_USERNAME=movie_prf
+      - DB_PASSWORD=secret
       - AWS_ACCESS_KEY_ID=minioadmin
       - AWS_SECRET_ACCESS_KEY=minioadmin
       - AWS_DEFAULT_REGION=us-east-1
@@ -41,22 +41,20 @@ services:
     networks:
       - movie_prf_network
 
-  # MySQL データベース
+  # PostgreSQL データベース (pgvector 拡張同梱)
   db:
-    image: mysql:8.0
+    image: pgvector/pgvector:pg16
     container_name: movie_prf_db
     ports:
-      - "3306:3306"
+      - "5432:5432"
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: movie_prf
-      MYSQL_USER: movie_prf_user
-      MYSQL_PASSWORD: movie_prf_pass
+      POSTGRES_DB: movie_prf
+      POSTGRES_USER: movie_prf
+      POSTGRES_PASSWORD: secret
     volumes:
-      - db_data:/var/lib/mysql
+      - db_data:/var/lib/postgresql/data
     networks:
       - movie_prf_network
-    command: --default-authentication-plugin=mysql_native_password
 
   # MinIO (S3エミュレータ)
   minio:
@@ -74,27 +72,10 @@ services:
     networks:
       - movie_prf_network
 
-  # PostgreSQL (チャットボット用・pgvector)
-  postgres:
-    image: pgvector/pgvector:pg16
-    container_name: movie_prf_postgres
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_DB: chatbot
-      POSTGRES_USER: chatbot
-      POSTGRES_PASSWORD: secret
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - movie_prf_network
-
 volumes:
   db_data:
     driver: local
   minio_data:
-    driver: local
-  postgres_data:
     driver: local
 
 networks:

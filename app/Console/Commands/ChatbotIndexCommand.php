@@ -47,8 +47,7 @@ class ChatbotIndexCommand extends Command
                 continue;
             }
 
-            DB::connection('pgsql_chatbot')
-                ->table('faq_chunks')
+            DB::table('faq_chunks')
                 ->where('source_path', $relativePath)
                 ->delete();
 
@@ -67,7 +66,7 @@ class ChatbotIndexCommand extends Command
                     $embedding = $embeddingService->embed($chunk);
                     $vectorString = '[' . implode(',', $embedding) . ']';
 
-                    DB::connection('pgsql_chatbot')->table('faq_chunks')->insert([
+                    DB::table('faq_chunks')->insert([
                         'source_path' => $relativePath,
                         'chunk_index' => $chunkIndex,
                         'content' => $chunk,
@@ -117,8 +116,7 @@ class ChatbotIndexCommand extends Command
      */
     private function isUpToDate(string $sourcePath, \Carbon\Carbon $fileModified): bool
     {
-        $latestChunk = DB::connection('pgsql_chatbot')
-            ->table('faq_chunks')
+        $latestChunk = DB::table('faq_chunks')
             ->where('source_path', $sourcePath)
             ->max('updated_at');
 

@@ -21,7 +21,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && rm -rf /var/lib/apt/lists/*
 
 # PHP拡張のインストール
-RUN docker-php-ext-install pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd
+RUN docker-php-ext-install pdo_pgsql mbstring exif pcntl bcmath gd
 
 # Composerのインストール
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer

@@ -7,16 +7,19 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    protected $connection = 'pgsql_chatbot';
-
     /**
      * マイグレーション実行
      */
     public function up(): void
     {
-        DB::connection('pgsql_chatbot')->statement('CREATE EXTENSION IF NOT EXISTS vector');
+        // pgvector は PostgreSQL 固有拡張。SQLite のテスト環境ではスキップ
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
 
-        Schema::connection('pgsql_chatbot')->create('faq_chunks', function (Blueprint $table) {
+        DB::statement('CREATE EXTENSION IF NOT EXISTS vector');
+
+        Schema::create('faq_chunks', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->string('source_path', 500);
             $table->integer('chunk_index');
@@ -26,10 +29,10 @@ return new class extends Migration
             $table->index('source_path');
         });
 
-        DB::connection('pgsql_chatbot')->statement(
+        DB::statement(
             'ALTER TABLE faq_chunks ADD COLUMN embedding vector(1024) NOT NULL'
         );
-        DB::connection('pgsql_chatbot')->statement(
+        DB::statement(
             'CREATE INDEX idx_faq_chunks_embedding ON faq_chunks USING hnsw (embedding vector_cosine_ops)'
         );
     }
@@ -39,6 +42,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::connection('pgsql_chatbot')->dropIfExists('faq_chunks');
+        Schema::dropIfExists('faq_chunks');
     }
 };

@@ -25,7 +25,7 @@
 - **バックエンド**: Laravel 11.x + PHP 8.2
 - **フロントエンド**: Blade + Tailwind CSS + Alpine.js
 - **ビルドツール**: Vite
-- **データベース**: MySQL 8.0 (アプリ本体) / PostgreSQL + pgvector (チャットボット専用)
+- **データベース**: PostgreSQL 16 + pgvector (アプリ本体・チャットボット共通の単一DB)
 - **ローカル開発環境**: Docker
 - **インフラ**: AWS (EC2, S3, RDS, Bedrock)
 - **IaC**: CloudFormation (本番環境のインフラ構成管理)
@@ -197,8 +197,9 @@
 - 作成日時・更新日時
 
 #### チャットボット情報
-- チャット履歴 (user_id, role, content, 参照チャンクID, 作成日時) ※ MySQL側
-- FAQチャンク (source_path, content, 埋め込みベクトル, トークン数, 更新日時) ※ PostgreSQL側
+- チャット履歴 (user_id, role, content, 参照チャンクID, 作成日時)
+- FAQチャンク (source_path, content, 埋め込みベクトル, トークン数, 更新日時)
+※ アプリ本体と同一 PostgreSQL DB 内に格納(FAQチャンクのみ pgvector 拡張を利用)
 
 ### 5.2 データ保持要件
 - 削除されたユーザーのデータは30日後に完全削除
@@ -243,7 +244,7 @@
 - 月額運用コスト目標: $30以下
 - 最小コストのインスタンスタイプを使用
 - 開発中はリソースを適宜停止してコスト削減
-- チャットボット用PostgreSQLはスナップショット運用で利用時のみ復元（月額$2程度）
+- データベースは PostgreSQL 単一構成（RDS インスタンス1系統で運用）
 - Bedrock利用料は月$1〜$3程度（既定 Nova Lite、`BEDROCK_MODEL_ID` 切替可能）
 
 ### 7.3 運用制約
@@ -408,3 +409,4 @@
 - v3.0: MVP機能の見直し（パスワードリセット・公開非公開切り替えを将来機能へ移動、ローカル開発環境をDockerに明記）
 - v4.0: 現行コードとの同期（技術スタック詳細追記、name/theme_color/is_public追加、パスワードリセット実装済みに修正、ポップアップ動画をカード内展開に修正）
 - v5.0: チャットボット機能(RAG)追加。AWS Bedrock(Nova Lite + Titan)・PostgreSQL(pgvector)をスタックに追加
+- v5.1: MySQL + pgsql_chatbot 2接続構成を PostgreSQL 単一接続へ統合（RDS 1系統化、chat_messages.user_id FK を RDBMS レベルで復活）

@@ -24,19 +24,18 @@ class RagService
         $queryVector = $this->embeddingService->embed($query);
         $vectorString = '[' . implode(',', $queryVector) . ']';
 
-        $chunks = DB::connection('pgsql_chatbot')
-            ->select("
-                SELECT
-                    id,
-                    source_path,
-                    chunk_index,
-                    content,
-                    1 - (embedding <=> ?) as similarity
-                FROM faq_chunks
-                WHERE 1 - (embedding <=> ?) >= ?
-                ORDER BY similarity DESC
-                LIMIT ?
-            ", [$vectorString, $vectorString, self::SIMILARITY_THRESHOLD, self::TOP_K]);
+        $chunks = DB::select("
+            SELECT
+                id,
+                source_path,
+                chunk_index,
+                content,
+                1 - (embedding <=> ?) as similarity
+            FROM faq_chunks
+            WHERE 1 - (embedding <=> ?) >= ?
+            ORDER BY similarity DESC
+            LIMIT ?
+        ", [$vectorString, $vectorString, self::SIMILARITY_THRESHOLD, self::TOP_K]);
 
         return array_map(fn ($chunk) => [
             'id' => $chunk->id,

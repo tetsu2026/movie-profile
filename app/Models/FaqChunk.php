@@ -6,8 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class FaqChunk extends Model
 {
-    protected $connection = 'pgsql_chatbot';
-
     public $timestamps = false;
 
     protected $fillable = [

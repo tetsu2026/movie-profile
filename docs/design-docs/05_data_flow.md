@@ -8,7 +8,7 @@
 sequenceDiagram
     participant U as ユーザー
     participant L as Laravel
-    participant DB as MySQL
+    participant DB as PostgreSQL
 
     U->>L: ユーザー登録フォーム送信（名前、メール、パスワード）
     L->>L: バリデーション（名前、メール、パスワード）
@@ -28,7 +28,7 @@ sequenceDiagram
 sequenceDiagram
     participant U as ユーザー
     participant L as Laravel
-    participant DB as MySQL
+    participant DB as PostgreSQL
 
     U->>L: メール・パスワード送信
     L->>DB: ユーザー認証情報照合
@@ -46,7 +46,7 @@ sequenceDiagram
 sequenceDiagram
     participant U as ユーザー
     participant L as Laravel
-    participant DB as MySQL
+    participant DB as PostgreSQL
 
     U->>L: プロフィール編集画面表示リクエスト
     L->>DB: 現在のプロフィール情報取得
@@ -70,7 +70,7 @@ sequenceDiagram
     participant U as ユーザー
     participant L as Laravel
     participant S3 as AWS S3
-    participant DB as MySQL
+    participant DB as PostgreSQL
     participant FFmpeg as FFmpeg
 
     Note over U,FFmpeg: Phase 1: アップロード
@@ -115,7 +115,7 @@ sequenceDiagram
 sequenceDiagram
     participant V as 閲覧者（未認証可）
     participant L as Laravel
-    participant DB as MySQL
+    participant DB as PostgreSQL
     participant S3 as AWS S3
 
     V->>L: 公開ページアクセス（/users/:id）
@@ -188,7 +188,7 @@ sequenceDiagram
 sequenceDiagram
     participant U as ユーザー
     participant L as Laravel
-    participant DB as MySQL
+    participant DB as PostgreSQL
     participant S3 as AWS S3
 
     U->>L: 動画削除リクエスト（force_deleteフラグ任意）
@@ -218,23 +218,23 @@ sequenceDiagram
     participant U as ユーザー
     participant L as Laravel (ChatbotController)
     participant S as ChatbotService
-    participant MySQL as MySQL (chat_messages)
+    participant PG as PostgreSQL (chat_messages)
     participant R as RagService
     participant T as Bedrock Titan
-    participant PG as Postgres (faq_chunks)
+    participant PGV as PostgreSQL (faq_chunks, pgvector)
     participant N as Bedrock Converse API
 
     U->>L: POST /chatbot/message (質問)
     L->>L: レート制限チェック(10req/min)
     L->>L: バリデーション(100文字以内)
     L->>S: handle(user, question)
-    S->>MySQL: chat_messages INSERT (role=user)
-    S->>MySQL: 直近5件の履歴取得 (フォールバック応答ペアを除外)
+    S->>PG: chat_messages INSERT (role=user)
+    S->>PG: 直近5件の履歴取得 (フォールバック応答ペアを除外)
     S->>R: retrieve(question)
     R->>T: Embed API (質問→1024次元ベクトル)
     T->>R: embedding[]
-    R->>PG: SELECT ... WHERE similarity >= 0.3 ORDER BY similarity DESC LIMIT 3
-    PG->>R: top-3 chunks
+    R->>PGV: SELECT ... WHERE similarity >= 0.3 ORDER BY similarity DESC LIMIT 3
+    PGV->>R: top-3 chunks
     alt ヒットあり
         R->>S: top-3 chunks
         S->>N: Converse API (system prompt + chunks + 履歴 + 質問)
@@ -242,9 +242,11 @@ sequenceDiagram
     else ヒットなし
         S->>S: 「情報が見つかりませんでした」固定応答 (LLM呼び出しなし)
     end
-    S->>MySQL: chat_messages INSERT (role=assistant, context_chunks: ヒット時はID配列/ヒットなしはnull)
+    S->>PG: chat_messages INSERT (role=assistant, context_chunks: ヒット時はID配列/ヒットなしはnull)
     S->>L: response
     L->>U: JSON {message, context_chunks}
+
+    %% 注: PG と PGV は同一 PostgreSQL DB 内の別テーブル (chat_messages / faq_chunks)
 ```
 
 ### 8. FAQインデックス化フロー
@@ -255,7 +257,7 @@ sequenceDiagram
     participant Art as php artisan chatbot:index
     participant FS as docs/*.md
     participant T as Bedrock Titan
-    participant PG as Postgres (faq_chunks)
+    participant PG as PostgreSQL (faq_chunks, pgvector)
 
     Admin->>Art: コマンド実行
     Art->>FS: Markdownファイル全取得
@@ -477,27 +479,19 @@ sequenceDiagram
 
 ---
 
-### PostgreSQL + pgvector（チャットボット専用DB）
-- **連携内容**: FAQチャンクの埋め込みベクトル保持・類似度検索
-- **接続**: Laravel の `pgsql_chatbot` 接続（`config/database.php`）
-- **テーブル**: `faq_chunks`（HNSWインデックス付き `vector_cosine_ops`）
-- **検索クエリ**: `1 - (embedding <=> $queryVec)` を類似度として算出し、`>= 0.3` のチャンクを `ORDER BY similarity DESC LIMIT 3` で取得
-- **運用**: 本番はスナップショット運用（利用時のみ復元）。詳細は `docs/operations/postgres_snapshot_operation.md`
-- **エラー処理**:
-  - 接続エラー: チャットボット機能を一時無効化、他機能は影響なし
-  - 検索エラー: 「情報が見つかりませんでした」固定応答に fallback
-
----
-
-### MySQL（データベース）
-- **連携内容**: アプリケーションデータの永続化
-- **主要テーブル**: users, profiles, videos
-- **接続方式**: Laravel Eloquent ORM
+### PostgreSQL + pgvector（アプリ本体・チャットボット共通DB）
+- **連携内容**: アプリケーションデータの永続化、およびチャットボット RAG のベクトル検索
+- **接続**: Laravel の `pgsql` 接続（default、`config/database.php`）
+- **主要テーブル**: users, profiles, videos, chat_messages, faq_chunks
+- **接続方式**: Laravel Eloquent ORM（RAG の類似度検索のみ生 SQL）
+- **pgvector**:
+  - `faq_chunks` テーブルで `vector(1024)` 型 + HNSW インデックス（`vector_cosine_ops`）を利用
+  - 検索クエリ: `1 - (embedding <=> $queryVec)` を類似度として算出し、`>= 0.3` のチャンクを `ORDER BY similarity DESC LIMIT 3` で取得
 - **トランザクション管理**:
   - ユーザー登録時: users + profiles を同時作成（トランザクション）
   - 動画削除時: videos削除 + S3削除（エラー時はロールバック）
 - **エラー処理**:
-  - 接続エラー: アプリケーションエラーページ表示
+  - 接続エラー: アプリケーションエラーページ表示（RAG のみ失敗時は「情報が見つかりませんでした」に fallback）
   - クエリエラー: ログに記録し、ユーザーに汎用エラーメッセージ表示
 
 ---

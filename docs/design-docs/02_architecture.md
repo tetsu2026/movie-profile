@@ -4,7 +4,7 @@
 - **フロントエンド**: Blade (Laravel標準テンプレートエンジン) + Tailwind CSS + Alpine.js
 - **ビルドツール**: Vite
 - **バックエンド**: Laravel 11.x + PHP 8.2
-- **データベース**: MySQL 8.0 (アプリ本体) / PostgreSQL 16 + pgvector (チャットボット専用)
+- **データベース**: PostgreSQL 16 + pgvector (アプリ本体・チャットボット共通の単一DB)
 - **認証**: Laravel Breeze (標準認証パッケージ)
 - **インフラ**: AWS (EC2 + S3 + RDS + Bedrock) + CloudFormation
 - **ローカル開発環境**: Docker + Docker Compose
@@ -25,8 +25,7 @@ graph TB
     subgraph "AWS環境"
         subgraph "VPC"
             EC2[EC2 t3.micro<br/>Laravel + FFmpeg]
-            RDS[RDS MySQL 8.0<br/>db.t3.micro]
-            RDSPG[RDS Postgres + pgvector<br/>db.t4g.micro ※利用時のみ復元]
+            RDS[RDS Postgres 16 + pgvector<br/>db.t4g.micro]
         end
 
         S3[S3バケット<br/>動画ストレージ]
@@ -37,14 +36,12 @@ graph TB
     Browser -->|HTTPS| EC2
     EC2 -->|動画アップロード| S3
     Browser -->|動画配信| S3
-    EC2 -->|SQL| RDS
-    EC2 -->|SQL/pgvector| RDSPG
+    EC2 -->|SQL/pgvector| RDS
     EC2 -->|InvokeModel| Bedrock
     EC2 -->|ログ送信| CloudWatch
 
     style EC2 fill:#FF9900
-    style RDS fill:#527FFF
-    style RDSPG fill:#336791
+    style RDS fill:#336791
     style S3 fill:#569A31
     style CloudWatch fill:#FF4F8B
     style Bedrock fill:#8C4FFF
@@ -57,22 +54,19 @@ graph TB
     subgraph "Docker環境"
         Web[Webコンテナ<br/>Nginx]
         App[アプリコンテナ<br/>PHP 8.2 + Laravel]
-        DB[DBコンテナ<br/>MySQL 8.0]
-        DBPG[DBコンテナ<br/>Postgres 16 + pgvector]
+        DB[DBコンテナ<br/>Postgres 16 + pgvector]
         LocalS3[MinIO<br/>S3エミュレータ]
     end
 
     Browser[開発者ブラウザ] -->|localhost:80| Web
     Web --> App
     App --> DB
-    App --> DBPG
     App --> LocalS3
     App -.->|HTTPS| BedrockCloud[AWS Bedrock<br/>※ローカルからもクラウド利用]
 
     style Web fill:#269bd2
     style App fill:#dc322f
-    style DB fill:#527FFF
-    style DBPG fill:#336791
+    style DB fill:#336791
     style LocalS3 fill:#569A31
     style BedrockCloud fill:#8C4FFF
 ```
@@ -86,15 +80,15 @@ graph LR
     User[ユーザー質問] --> Controller[ChatbotController] --> Service[ChatbotService]
 
     %% ===== 上：履歴 =====
-    Service ---|履歴取得 / 応答保存| MySQL[(MySQL<br/>chat_messages)]
+    Service ---|履歴取得 / 応答保存| Postgres1[(Postgres<br/>chat_messages)]
 
     %% ===== RAG検索 =====
     subgraph Retrieval[RAG検索]
         direction LR
         Rag[RagService] --> Embed[EmbeddingService]
         Embed -->|質問テキスト| Titan[Titan Embed v2]
-        Titan -->|質問ベクトル| Postgres[(Postgres<br/>faq_chunks<br/>pgvector)]
-        Postgres -->|top-3チャンク| Rag
+        Titan -->|質問ベクトル| Postgres2[(Postgres<br/>faq_chunks<br/>pgvector)]
+        Postgres2 -->|top-3チャンク| Rag
     end
 
     %% ===== 応答生成 =====
@@ -113,9 +107,11 @@ graph LR
     %% ===== スタイル =====
     style Titan fill:#8C4FFF
     style Converse fill:#8C4FFF
-    style MySQL fill:#527FFF
-    style Postgres fill:#336791
+    style Postgres1 fill:#336791
+    style Postgres2 fill:#336791
 ```
+
+> 注: `chat_messages` と `faq_chunks` は同一 PostgreSQL DB 内のテーブル。`faq_chunks` のみ pgvector 拡張を利用する。
 
 ## 選択理由
 
@@ -136,11 +132,12 @@ graph LR
   - コミュニティが活発で情報が豊富
 
 ### データベース
-- **MySQL 8.0**:
-  - 要件に明記された指定技術
-  - Laravelとの相性が良い
-  - RDSで簡単にマネージド運用可能
-  - 小規模アプリケーションには十分な性能
+- **PostgreSQL 16 + pgvector**:
+  - アプリ本体（users, profiles, videos, chat_messages 等）とチャットボット RAG（faq_chunks）を単一 DB で管理
+  - Laravel Eloquent / PDO pgsql で標準サポート
+  - pgvector 拡張により埋め込みベクトル検索を同一 DB 内で完結（HNSW インデックス + コサイン類似度）
+  - `chat_messages.user_id → users.id` の外部キー制約を RDBMS レベルで維持可能
+  - RDS マネージド運用、1インスタンスで完結するためコスト・運用負荷が低い
 
 ### 認証
 - **Laravel Breeze**:
@@ -160,10 +157,11 @@ graph LR
   - パブリック読み取りで直接配信
   - ストレージ容量の制限がなく、従量課金
 
-- **AWS RDS (db.t3.micro)**:
-  - マネージドMySQLで運用が簡単
+- **AWS RDS (db.t4g.micro, PostgreSQL 16)**:
+  - マネージド PostgreSQL で運用が簡単、pgvector 拡張も利用可能
   - 自動バックアップ機能（将来実装）
   - EC2と同一VPC内で安全な通信
+  - アプリ本体とチャットボット RAG を 1 インスタンスで運用
 
 - **CloudFormation**:
   - インフラをコードで管理（IaC）
@@ -206,24 +204,23 @@ graph LR
   - Bedrockで統一管理
   - 埋め込み料金 $0.02/1M トークンと安価
 
-### チャットボット用データベース
-- **PostgreSQL 16 + pgvector**:
+### チャットボット用 pgvector
+- **PostgreSQL pgvector 拡張**:
   - RAG実装の業界標準
   - HNSWインデックスで高速な近似最近傍検索
-  - MySQLとは別インスタンスで分離（アプリ本体への影響ゼロ）
-  - 本番はスナップショット運用（利用時のみ復元）でコスト抑制
+  - アプリ本体と同一 DB 内で `faq_chunks` テーブルのみ `CREATE EXTENSION vector` を適用
+  - 別インスタンスを立てないため、本番 RDS インスタンスは 1 系統で済む
 
 ## 初期コスト（月額）
 
 ### 本番環境（AWS）
 - **EC2 (t3.micro)**: $7.50/月
-- **RDS MySQL (db.t3.micro)**: $12.50/月
-- **RDS Postgres (db.t4g.micro)**: $2.00/月（※スナップショット運用、利用時のみ復元）
+- **RDS Postgres 16 + pgvector (db.t4g.micro)**: $12.50/月（アプリ本体・チャットボット共通）
 - **S3ストレージ**: $1.00/月（想定: 動画50GB程度）
 - **S3データ転送**: $1.00/月（想定: 100GB転送）
 - **CloudWatch**: $2.00/月（ログ・メトリクス）
 - **Bedrock (Converse API + Titan)**: $1.00〜$3.00/月（100ユーザー×50QA想定、Nova Lite 既定）
-- **合計**: **$27.00〜$29.00/月**
+- **合計**: **$25.00〜$27.00/月**
 
 ### 開発環境
 - ローカル開発: $0（Docker使用）

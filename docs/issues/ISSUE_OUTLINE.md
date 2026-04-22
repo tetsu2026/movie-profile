@@ -22,6 +22,9 @@
 
 > **備考**: Phase 5は#17（動画エンコード機能）完了後に着手することを推奨。MVPのコア機能として、Phase 2完了後に実装するのが現実的。
 
+### Phase 6: チャットボット・DB統合（#28〜#29）
+ログイン後ユーザー向けFAQチャットボット（RAG）を実装し、その後チャットボット用のPostgreSQLとアプリ本体のMySQLを単一のPostgreSQL DBに統合する。
+
 ---
 
 ## 依存関係マップ
@@ -49,6 +52,9 @@ Phase 4: 堅牢化
 
 Phase 5: 動画表示
 #10, #14 → #27
+
+Phase 6: チャットボット・DB統合
+#7 → #28 → #29
 ```
 
 ---
@@ -539,6 +545,46 @@ Phase 5: 動画表示
 - [ ] status='completed'の動画のみ表示される
 - [ ] レスポンシブ対応（モバイル・タブレット・デスクトップ）
 - [ ] プレビューページでも同じ動画表示機能が動作する
+
+---
+
+### Phase 6: チャットボット・DB統合
+
+#### Issue #28: チャットボット機能実装（Phase 1: FAQ RAG最小構成）
+
+**概要**: ログイン後ユーザー向けのFAQ回答チャットボットをRAG方式で実装。AWS Bedrock (Nova Lite + Titan Embeddings v2) と PostgreSQL + pgvector を使用し、`docs/` 配下のMarkdownを知識源とする。この段階では MySQL（アプリ本体）+ PostgreSQL（`faq_chunks` のみ）の 2 接続構成。
+
+**依存**: #7
+
+**タスク領域**: backend, frontend, infrastructure, AI/ML
+
+**受け入れ基準(AC)**:
+- [x] Docker環境で Postgres + pgvector が起動する
+- [x] `php artisan chatbot:index` で `docs/` 配下のMarkdownがチャンク化され `faq_chunks` にINSERTされる
+- [x] ログイン後の全画面右下にチャットボタンが表示され、Bedrock Converse API (Nova Lite) からの応答が表示される
+- [x] 会話履歴が `chat_messages` に保存され、マルチターン会話で直近5件の文脈が参照される
+- [x] 類似度0.3未満のときは「情報が見つかりませんでした」固定応答が返る
+- [x] レート制限 10req/min、100文字超の入力バリデーション、認証必須が動作する
+
+---
+
+#### Issue #29: PostgreSQL 単一 DB 構成への統合移行（MySQL 廃止）
+
+**概要**: MySQL（アプリ本体）+ PostgreSQL（チャットボットRAG）の2接続構成を、PostgreSQL 単一 DB に統合。`chat_messages.user_id → users.id` の外部キー制約を RDBMS レベルで復活させ、本番 RDS インスタンスを 1 系統に削減する。MVP 段階のため `migrate:fresh --seed` で再構築を前提。
+
+**依存**: #28
+
+**タスク領域**: backend, infrastructure, database
+
+**受け入れ基準(AC)**:
+- [x] `config/database.php` のデフォルト接続が `pgsql` で、`mysql` / `pgsql_chatbot` が削除されている
+- [x] `docker-compose.yml` で MySQL サービスが削除され、`db` が `pgvector/pgvector:pg16` に統一されている
+- [x] `FaqChunk` モデル・`RagService` ・`ChatbotIndexCommand` から `pgsql_chatbot` 接続指定が除去されている
+- [x] `phpunit.xml` で `DB_CONNECTION=sqlite` が `force="true"` で固定されている
+- [x] 設計書（02_architecture / 03_database / 05_data_flow / 09_er）と要件定義が PostgreSQL 単一構成に更新されている
+- [ ] ローカルでクリーンビルド（`migrate:fresh --seed` + `chatbot:index --fresh`）が成功する
+- [ ] `chat_messages.user_id → users.id` の FK 制約が PostgreSQL に張られている
+- [ ] 本番 RDS が PostgreSQL に切替完了し、旧 MySQL RDS が削除されている
 
 ---
 

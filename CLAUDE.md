@@ -57,6 +57,29 @@
 - **ソフトデリート**: `SoftDeletes` トレイトを使用。`withTrashed()` は明確に必要な場合のみ
 - 設計書: `docs/design-docs/03_database.md`
 
+### Node.js版（NestJS + Prisma）との DB 共有
+
+本番では Laravel 版と Node.js 版が**同一の PostgreSQL DB（`chatbot-postgres` の `chatbot` DB）を共有**している。スキーマ変更時は以下のルールを守る：
+
+- **スキーマの主導権は Laravel migration**。Node.js 版（Prisma）は `prisma db pull` で追従し、`prisma migrate` は使わない
+- DB 変更は Laravel で migration を作成・適用 → Node.js 側で `prisma db pull` + `prisma generate`
+- `$table->enum(...)` の扱いに注意（後述）
+
+### enum カラムの扱い（PostgreSQL + Prisma 連携時の注意）
+
+`$table->enum()` は PostgreSQL では **VARCHAR + CHECK 制約**として実装される。一方 Prisma の `enum + @@map` は **PostgreSQL ネイティブ ENUM 型**を期待するため、両者の不一致で `type "..." does not exist` エラーが起きる。
+
+新しく enum カラムを追加する場合は、以下のいずれかで対応する：
+
+1. **`$table->enum(...)` を使う場合**: 直後に「VARCHAR → ネイティブ ENUM への変換 migration」を**必ず追加**する（既存例: `2026_05_07_000000_convert_enum_columns_to_postgres_native_enum.php`）
+2. **生 SQL で最初からネイティブ ENUM 型として作る**:
+   ```php
+   DB::statement("CREATE TYPE my_enum AS ENUM ('a','b')");
+   DB::statement("ALTER TABLE my_table ADD COLUMN my_col my_enum DEFAULT 'a'");
+   ```
+
+PostgreSQL ネイティブ ENUM 型名は Prisma 側の `@@map(...)` と一致させる必要がある。
+
 ---
 
 ## プロジェクト固有のルール

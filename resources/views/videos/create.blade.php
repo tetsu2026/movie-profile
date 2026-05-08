@@ -34,6 +34,15 @@
             </div>
         @enderror
 
+        {{-- XHR 経由のバリデーションエラーをここに動的表示 --}}
+        <div id="ajax-error" class="mb-5 rounded-2xl px-5 py-4 text-sm font-medium flex items-center gap-3 hidden"
+             style="background-color: #FFF1F2; color: #991B1B; border: 1px solid #FECDD3;">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
+            </svg>
+            <span id="ajax-error-message"></span>
+        </div>
+
         {{-- アップロードフォーム --}}
         <div class="rounded-2xl bg-white border border-gray-100 p-6 md:p-8">
             <form method="POST" action="{{ route('videos.store') }}" enctype="multipart/form-data" class="space-y-6" id="upload-form">
@@ -125,10 +134,32 @@
             submitBtn.disabled = true;
             submitBtn.textContent = 'アップロード中...';
 
+            const ajaxError = document.getElementById('ajax-error');
+            const ajaxErrorMessage = document.getElementById('ajax-error-message');
+            ajaxError.classList.add('hidden');
+
+            const resetUI = () => {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'アップロード';
+                progressBar.classList.add('hidden');
+                progressFill.style.width = '0%';
+                progressFill.textContent = '0%';
+            };
+
+            const showError = (message) => {
+                ajaxErrorMessage.textContent = message;
+                ajaxError.classList.remove('hidden');
+                ajaxError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                resetUI();
+            };
+
             const xhr = new XMLHttpRequest();
             xhr.open('POST', form.action, true);
 
-            // CSRFトークン
+            // Acceptを application/json にすることで、Laravelはバリデーション失敗時に
+            // 302リダイレクトではなく 422 + JSON で返す。
+            xhr.setRequestHeader('Accept', 'application/json');
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
             xhr.setRequestHeader('X-CSRF-TOKEN', document.querySelector('meta[name="csrf-token"]').content);
 
             // プログレス更新
@@ -142,19 +173,37 @@
 
             // 完了時
             xhr.addEventListener('load', function() {
-                if (xhr.status >= 200 && xhr.status < 400) {
+                if (xhr.status >= 200 && xhr.status < 300) {
                     window.location.href = '{{ route("videos.index") }}';
-                } else {
-                    window.location.reload();
+                    return;
                 }
+
+                if (xhr.status === 422) {
+                    // Laravelのバリデーションエラー
+                    try {
+                        const res = JSON.parse(xhr.responseText);
+                        const messages = res.errors
+                            ? Object.values(res.errors).flat()
+                            : [res.message || 'バリデーションエラーが発生しました'];
+                        showError(messages.join(' / '));
+                    } catch (_) {
+                        showError('バリデーションエラーが発生しました');
+                    }
+                    return;
+                }
+
+                if (xhr.status === 413) {
+                    // サーバ側(php.ini / nginx)の上限超過
+                    showError('ファイルサイズが大きすぎます');
+                    return;
+                }
+
+                showError('アップロードに失敗しました（HTTP ' + xhr.status + '）');
             });
 
             // エラー時
             xhr.addEventListener('error', function() {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'アップロード';
-                progressBar.classList.add('hidden');
-                alert('アップロードに失敗しました。もう一度お試しください。');
+                showError('アップロードに失敗しました。もう一度お試しください。');
             });
 
             xhr.send(formData);

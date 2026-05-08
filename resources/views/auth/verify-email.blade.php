@@ -16,4 +16,10 @@
             再送信する
         </x-primary-button>
     </form>
+
+    <p class="text-center text-sm text-gray-500 mt-6">
+        <a href="{{ route('home') }}" class="font-medium hover:opacity-70 transition-opacity duration-150" style="color: #1D1D1F;">
+            トップへ戻る
+        </a>
+    </p>
 </x-guest-layout>

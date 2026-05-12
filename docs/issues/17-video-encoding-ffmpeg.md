@@ -1,10 +1,13 @@
 # Issue #17: 動画エンコード機能実装（FFmpeg同期処理）
 
+> **⚠️ Phase 7 で置換予定**: 本 issue で実装した同期エンコード処理は、Phase 7（ECS化）の Issue #30「動画エンコードの Queue Job 化」で `EncodeVideoJob`（Laravel Queue + database ドライバ）に置き換える。Worker タスクで非同期実行される構成へ移行する。詳細: `docs/plans/ecs_ecr_migration_phase1.md`
+
 ## 背景 / 目的
 
 FFmpegを使用した動画エンコード処理を実装する。Phase 1は同期処理で最小実装し、mp4（H.264/AAC）形式にエンコードしてS3にアップロードする。エンコード中はユーザーに処理中を表示する。
 
 - **依存**: #16
+- **後続**: #30（Queue Job 化）
 - **ラベル**: backend
 
 ---

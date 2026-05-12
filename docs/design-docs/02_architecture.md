@@ -6,15 +6,23 @@
 - **バックエンド**: Laravel 11.x + PHP 8.2
 - **データベース**: PostgreSQL 16 + pgvector (アプリ本体・チャットボット共通の単一DB)
 - **認証**: Laravel Breeze (標準認証パッケージ)
-- **インフラ**: AWS (EC2 + S3 + RDS + Bedrock) + CloudFormation
+- **インフラ**: AWS (ECS on EC2 + ECR + S3 + RDS + Bedrock) + CloudFormation
+  - Phase 7 で EC2 単体構成から ECS on EC2 起動タイプへ移行（詳細は `docs/plans/ecs_ecr_migration_phase1.md`）
+  - EC2 上のホスト nginx が SSL 終端＋リバプロを担い、Docker コンテナで Laravel を実行
+- **コンテナ**: Docker + ECS Task Definition（web タスク + worker タスクの 2 種）
+- **ジョブキュー**: Laravel Queue（`database` ドライバ、PostgreSQL の `jobs` テーブル）
 - **ローカル開発環境**: Docker + Docker Compose
-- **動画処理**: FFmpeg
+- **動画処理**: FFmpeg（Phase 7 以降は worker タスクで Queue Job として非同期実行）
 - **AI/LLM**: AWS Bedrock Converse API（LLMは `BEDROCK_MODEL_ID` で切替可能、既定 Amazon Nova Lite）+ Titan Embeddings v2
 - **ライブラリ**: getID3（動画メタデータ取得）, @tailwindcss/forms（フォームスタイル）, aws/aws-sdk-php（Bedrock呼び出し）
 - **テスト**: Pest（ユニット/フィーチャーテスト）, Playwright（E2Eテスト）
-- **その他**: CloudWatch (監視・ログ)
+- **シークレット管理**: AWS Systems Manager Parameter Store（SecureString）
+- **CI/CD**: GitHub Actions（OIDC 認証、ECR push + ECS update-service）
+- **その他**: CloudWatch Logs（コンテナログを `awslogs` ドライバで集約）
 
 ## システム構成図
+
+Phase 7（ECS化）以降の構成を示す。Laravel アプリケーションは ECS タスクとして起動し、EC2 上のホスト nginx が SSL 終端＋リバプロを担当する。
 
 ```mermaid
 graph TB
@@ -23,28 +31,45 @@ graph TB
     end
 
     subgraph "AWS環境"
+        ECR[ECR<br/>movie-prf-laravel<br/>イメージリポジトリ]
+
         subgraph "VPC"
-            EC2[EC2 t3.micro<br/>Laravel + FFmpeg]
-            RDS[RDS Postgres 16 + pgvector<br/>db.t4g.micro]
+            subgraph EC2["EC2 t3.micro (ECS Container Instance)"]
+                Nginx[ホスト nginx<br/>SSL終端・リバプロ]
+                LaravelWeb[ECSタスク: laravel-web<br/>nginx + php-fpm + FFmpeg]
+                LaravelWorker[ECSタスク: laravel-worker<br/>php artisan queue:work]
+            end
+            RDS[RDS Postgres 16 + pgvector<br/>db.t4g.micro<br/>jobs/failed_jobs 含む]
         end
 
         S3[S3バケット<br/>動画ストレージ]
-        CloudWatch[CloudWatch<br/>ログ・監視]
+        CWLogs[CloudWatch Logs<br/>awslogs ドライバ]
+        SSM[SSM Parameter Store<br/>シークレット管理]
         Bedrock[AWS Bedrock<br/>Converse API + Titan Embed]
     end
 
-    Browser -->|HTTPS| EC2
-    EC2 -->|動画アップロード| S3
+    Browser -->|HTTPS| Nginx
+    Nginx -->|127.0.0.1:8080| LaravelWeb
+    ECR -.->|docker pull| LaravelWeb
+    ECR -.->|docker pull| LaravelWorker
+    LaravelWeb -->|Job dispatch| RDS
+    LaravelWorker -->|Job consume| RDS
+    LaravelWeb -->|SQL/pgvector| RDS
+    LaravelWorker -->|S3/FFmpeg| S3
     Browser -->|動画配信| S3
-    EC2 -->|SQL/pgvector| RDS
-    EC2 -->|InvokeModel| Bedrock
-    EC2 -->|ログ送信| CloudWatch
+    LaravelWeb -->|InvokeModel| Bedrock
+    LaravelWeb -->|ログ| CWLogs
+    LaravelWorker -->|ログ| CWLogs
+    LaravelWeb -.->|secret取得| SSM
+    LaravelWorker -.->|secret取得| SSM
 
     style EC2 fill:#FF9900
     style RDS fill:#336791
     style S3 fill:#569A31
-    style CloudWatch fill:#FF4F8B
+    style CWLogs fill:#FF4F8B
     style Bedrock fill:#8C4FFF
+    style ECR fill:#FF9900
+    style SSM fill:#759C3E
 ```
 
 ### ローカル開発環境構成
@@ -147,10 +172,17 @@ graph LR
   - カスタマイズが容易
 
 ### インフラ
-- **AWS EC2 (t3.micro)**:
-  - LaravelアプリケーションとFFmpegを同居させる
-  - 低コストで運用可能
-  - 将来的なスケールアップも容易
+- **AWS EC2 (t3.micro) + ECS on EC2 起動タイプ**:
+  - Phase 7 で EC2 単体配置から ECS Container Instance へ移行
+  - 既存 EC2 を ECS クラスタに登録し、Docker コンテナで Laravel を実行
+  - Fargate ではなく on EC2 を採用（月額 $30 予算堅持のため）
+  - swap 2GiB を追加してメモリ逼迫を吸収（CloudWatch でスワップ使用率を監視）
+  - 詳細: `docs/plans/ecs_ecr_migration_phase1.md`
+
+- **AWS ECR**:
+  - Laravel コンテナイメージのプライベートリポジトリ（`movie-prf-laravel`）
+  - GitHub Actions（OIDC）が `docker buildx --push` で配信
+  - ライフサイクル: untagged 7 日 expire、tagged 直近 10 個保持
 
 - **AWS S3**:
   - 動画ファイルの保存・配信に最適
@@ -162,11 +194,22 @@ graph LR
   - 自動バックアップ機能（将来実装）
   - EC2と同一VPC内で安全な通信
   - アプリ本体とチャットボット RAG を 1 インスタンスで運用
+  - Laravel Queue の `jobs` / `failed_jobs` テーブルも同一 DB に配置
+
+- **AWS Systems Manager Parameter Store**:
+  - DB パスワード、`APP_KEY`、Bedrock 認証情報等を SecureString で保管
+  - ECS タスク定義の `secrets` から参照、Task Execution Role に `ssm:GetParameters` 付与
+  - Secrets Manager（$0.40/secret/月）ではなく無料の Parameter Store を採用
 
 - **CloudFormation**:
   - インフラをコードで管理（IaC）
+  - ECR / ECS クラスタ / タスク定義 / IAM ロール / Parameter Store も IaC 化
   - 本番環境の構築・破棄が容易
   - パラメータで開発/本番環境を切り替え可能
+
+- **GitHub Actions (OIDC)**:
+  - IAM ユーザーの長期キーを保管せず、GitHub の OIDC プロバイダで一時クレデンシャル発行
+  - `docker buildx --push :sha` → `register-task-definition` → `update-service` のローリングデプロイ
 
 ### ローカル開発環境
 - **Docker + Docker Compose**:
@@ -178,13 +221,22 @@ graph LR
 - **FFmpeg**:
   - オープンソースで無料
   - 多様な動画フォーマットに対応
-  - EC2上で実行（Phase 1）
-  - 将来的にLambda化を検討（Phase 2）
+  - Phase 1〜6: EC2 上の PHP プロセス内で同期実行
+  - **Phase 7（ECS化）以降: Laravel Queue Job `EncodeVideoJob` として laravel-worker タスクで非同期実行**
+  - Worker タスクは Web タスクと分離してデプロイ・スケール可能
+
+### ジョブキュー
+- **Laravel Queue (`database` ドライバ)**:
+  - Phase 7 で導入。PostgreSQL の `jobs` / `failed_jobs` テーブルを利用
+  - ECS rolling deploy や障害発生時もジョブ自体は DB に残るため失われない
+  - Redis (ElastiCache) を採用しないことで月額コスト $9 を節約
+  - 将来 Redis に切替する場合は `.env` の `QUEUE_CONNECTION=redis` 変更のみで対応可能
 
 ### 監視・ログ
-- **CloudWatch**:
-  - AWS標準の監視サービス
-  - ログ収集とアラート設定が可能
+- **CloudWatch Logs**:
+  - Phase 6 までは EC2 上の CloudWatch Agent でログファイルを収集
+  - **Phase 7 以降は ECS タスク定義の `awslogs` ドライバでコンテナの stdout/stderr を直接 CloudWatch Logs に送信**（ファイル経由廃止）
+  - ロググループ: `/ecs/movie-prf/laravel-web`, `/ecs/movie-prf/laravel-worker`（retention 7 日）
   - 追加コストが最小限
 
 ### AI/LLM（チャットボット）
@@ -213,14 +265,16 @@ graph LR
 
 ## 初期コスト（月額）
 
-### 本番環境（AWS）
-- **EC2 (t3.micro)**: $7.50/月
-- **RDS Postgres 16 + pgvector (db.t4g.micro)**: $12.50/月（アプリ本体・チャットボット共通）
+### 本番環境（AWS、Phase 7 ECS化後）
+- **EC2 (t3.micro)**: $7.50/月（ECS Container Instance として継続利用）
+- **RDS Postgres 16 + pgvector (db.t4g.micro)**: $12.50/月（アプリ本体・チャットボット共通、jobs/failed_jobs テーブル含む）
+- **ECR**: $0〜$1.00/月（500MB まで無料、超過後 $0.10/GB）
+- **SSM Parameter Store (Standard)**: $0/月（無料）
 - **S3ストレージ**: $1.00/月（想定: 動画50GB程度）
 - **S3データ転送**: $1.00/月（想定: 100GB転送）
-- **CloudWatch**: $2.00/月（ログ・メトリクス）
+- **CloudWatch Logs**: $0.50/月（retention 7 日、合計 1GB 想定）
 - **Bedrock (Converse API + Titan)**: $1.00〜$3.00/月（100ユーザー×50QA想定、Nova Lite 既定）
-- **合計**: **$25.00〜$27.00/月**
+- **合計**: **$23.50〜$26.50/月**
 
 ### 開発環境
 - ローカル開発: $0（Docker使用）
@@ -230,6 +284,7 @@ graph LR
 - 月額目標$30以下を達成可能
 - 開発中はEC2/RDSを停止してコスト削減
 - 無料利用枠（初年度）があればさらに削減可能
+- Phase 8（ALB 追加 + オートスケーリング）導入時は ALB $16/月 + 2 台目 EC2 $7.5/月 ≈ +$24/月の増加が見込まれる
 
 ## セキュリティ基盤
 
@@ -249,14 +304,27 @@ graph LR
 
 ## 将来の拡張性
 
-### Phase 2での改善案
-- **CloudFront**: S3の前段にCDNを配置し、動画配信を高速化
-- **ECS + Lambda**: 非同期エンコード処理に移行
-- **ElastiCache**: セッション管理やキャッシュに利用
-- **RDS自動バックアップ**: データ保護の強化
-- **マルチAZ構成**: 可用性向上（コスト増加）
+### Phase 7（実施中・本フェーズ）
+- **ECS on EC2 + ECR**: コンテナ運用化（Web タスク + Worker タスク）
+- **動画エンコード Queue Job 化**: `EncodeVideoJob` で非同期化、Web リクエストをブロックしない
+- **GitHub Actions OIDC CI/CD**: ECR push → ECS rolling deploy 自動化
+- **CloudWatch Logs `awslogs` 統合**: コンテナログ集約
+- 詳細: `docs/plans/ecs_ecr_migration_phase1.md`
+
+### Phase 8（ECS 化後の発展）
+- **ALB**: ホスト nginx を ALB に置き換え、SSL 終端を ACM へ
+- **オートスケーリング**: ECS Service の `desiredCount` を CPU 使用率に応じて自動増減
+- **Capacity Provider + Auto Scaling Group**: コンテナインスタンス自体の自動増減
+- 想定追加コスト: ALB $16/月 + 2 台目 EC2 $7.5/月 ≈ $24/月（予算超のため別途判断）
+
+### Phase 9（さらなるマネージド化）
+- **Fargate 移行**: EC2 管理を完全に廃止、Spot Fargate で最大 70% 削減
+- **CloudFront**: 動画配信に CDN を導入（Node.js 版 SPA は Phase 7 で先行対応）
+- **ElastiCache**: Queue/Session を Redis に切替、`database` ドライバから移行
+- **RDS マルチ AZ**: 可用性向上（コスト増加）
 
 ### スケーラビリティ
-- EC2のインスタンスタイプ変更でスケールアップ
-- Auto Scalingで負荷に応じた自動スケール（将来）
-- S3は自動的にスケール
+- ECS タスクの `desiredCount` 変更で水平スケール
+- Auto Scaling で負荷に応じた自動スケール（Phase 8 以降）
+- S3 は自動的にスケール
+- Worker タスクと Web タスクを独立スケール可能

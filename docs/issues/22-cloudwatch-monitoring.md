@@ -1,10 +1,13 @@
 # Issue #22: CloudWatch監視設定（本番環境）
 
+> **⚠️ Phase 7 で置換予定**: 本 issue で構築した CloudWatch Agent によるログファイル収集方式は、Phase 7（ECS化）の Issue #35 で **ECS タスク定義の `awslogs` ドライバ**（コンテナの stdout/stderr を直接 CloudWatch Logs に送信）に置き換える。EC2 標準メトリクスでのリソース監視は継続。詳細: `docs/plans/ecs_ecr_migration_phase1.md`
+
 ## 背景 / 目的
 
 CloudWatchでEC2/RDSのログ・メトリクス監視を設定し、本番環境の安定運用を実現する。リソース使用率やエラーログを可視化し、問題の早期発見を可能にする。
 
 - **依存**: #1（インフラ構築完了後）
+- **後続**: #35（Phase 7 で awslogs ドライバ統合に置換）
 - **ラベル**: infra
 
 ---

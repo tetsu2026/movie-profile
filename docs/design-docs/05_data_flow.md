@@ -65,49 +65,63 @@ sequenceDiagram
 
 ### 4. 動画アップロード・エンコードフロー（重要）
 
+> Phase 7（ECS化）で、従来の同期エンコードから **Laravel Queue Job（`EncodeVideoJob`）による非同期処理** に置き換えた。Web タスクはジョブを `jobs` テーブルに登録するだけで即レスポンスし、Worker タスク（`php artisan queue:work` 常駐）がジョブを取り出してエンコードを実行する。
+
 ```mermaid
 sequenceDiagram
     participant U as ユーザー
-    participant L as Laravel
+    participant Web as laravel-web<br/>(ECSタスク)
+    participant Worker as laravel-worker<br/>(ECSタスク)
     participant S3 as AWS S3
-    participant DB as PostgreSQL
-    participant FFmpeg as FFmpeg
+    participant DB as PostgreSQL<br/>(videos / jobs / failed_jobs)
+    participant FFmpeg as FFmpeg<br/>(Workerコンテナ内)
 
-    Note over U,FFmpeg: Phase 1: アップロード
-    U->>L: 動画ファイル選択 & アップロード
-    L->>L: バリデーション（100MB以内、1分以内、形式チェック）
+    Note over U,FFmpeg: Phase 1: アップロード（即時応答）
+    U->>Web: 動画ファイル選択 & アップロード
+    Web->>Web: バリデーション（100MB以内、1分以内、形式チェック）
 
     alt バリデーション成功
-        L->>DB: videosレコード作成（status: uploading）
-        L->>S3: 元動画アップロード（original_path）
-        L->>DB: status更新: uploading → encoding
-        L->>U: アップロード完了、エンコード開始メッセージ
+        Web->>DB: videosレコード作成（status: uploading）
+        Web->>S3: 元動画アップロード（original_path）
+        Web->>DB: status更新: uploading → encoding
+        Web->>DB: jobs テーブルに EncodeVideoJob を INSERT
+        Web->>U: アップロード完了、エンコード開始メッセージ（即レスポンス）
 
-        Note over U,FFmpeg: Phase 2: エンコード（同期処理）
-        L->>S3: 元動画ダウンロード（一時ディレクトリ）
-        L->>FFmpeg: エンコード実行（mp4, H.264/AAC, 1080p）
+        Note over U,FFmpeg: Phase 2: エンコード（Worker タスクで非同期）
+        Worker->>DB: jobs から EncodeVideoJob を取得（poll）
+        Worker->>S3: 元動画ダウンロード（コンテナ内 /tmp）
+        Worker->>FFmpeg: エンコード実行（mp4, H.264/AAC, 1080p）
 
         alt エンコード成功
-            FFmpeg->>L: エンコード完了
-            L->>S3: エンコード済み動画アップロード（encoded_path）
-            L->>S3: 元動画削除（original_path）
-            L->>DB: status更新: encoding → completed
-            L->>U: エンコード完了通知
+            FFmpeg->>Worker: エンコード完了
+            Worker->>S3: エンコード済み動画アップロード（encoded_path）
+            Worker->>S3: 元動画削除（original_path）
+            Worker->>DB: status更新: encoding → completed
+            Worker->>DB: jobs から該当ジョブ DELETE
+            U->>Web: ステータスポーリング (/videos)
+            Web->>U: 「使用可能」表示
         else エンコード失敗
-            FFmpeg->>L: エンコードエラー
-            L->>DB: retry_count + 1
-            alt retry_count < 3
-                L->>FFmpeg: 再試行
-            else retry_count >= 3
-                L->>DB: status更新: encoding → failed
-                L->>DB: error_message保存
-                L->>U: エンコード失敗通知
+            FFmpeg->>Worker: エンコードエラー
+            Worker->>DB: jobs.attempts + 1（Laravel Queue 標準動作）
+            alt attempts < 3 (tries=3)
+                Worker->>Worker: バックオフ後リトライ
+            else attempts >= 3
+                Worker->>DB: status更新: encoding → failed
+                Worker->>DB: error_message保存
+                Worker->>DB: failed_jobs に INSERT、jobs から DELETE
+                U->>Web: ステータスポーリング
+                Web->>U: 「エンコード失敗」表示
             end
         end
     else バリデーション失敗
-        L->>U: エラーメッセージ表示
+        Web->>U: エラーメッセージ表示
     end
 ```
+
+**ポイント:**
+- Phase 6 までは Web リクエスト内で同期実行していたため、ユーザーは最大 15 分待たされていた。Phase 7 でジョブ化したことで Web レスポンスは即時返却される
+- ECS rolling deploy で Worker タスクが置き換わってもジョブは `jobs` テーブルに残るため、新しい Worker が継続実行する
+- リトライ・失敗ハンドリングは Laravel Queue 標準の `tries=3` と `failed_jobs` テーブルで管理（独自の `retry_count` カラムから移行）
 
 ### 5. 公開ページ閲覧フロー
 
@@ -330,7 +344,7 @@ sequenceDiagram
 **トリガー**: ユーザーが動画ファイルをアップロード
 **処理ステップ**:
 
-#### アップロード段階
+#### アップロード段階（laravel-web タスク）
 1. ファイルバリデーション
    - ファイルサイズ: 100MB以内
    - 動画の長さ: 1分（60秒）以内
@@ -338,25 +352,33 @@ sequenceDiagram
 2. `videos`テーブルにレコード作成（status: uploading）
 3. S3に元動画アップロード（パス: `users/{user_id}/original/{video_id}.{ext}`）
 4. status更新: `uploading` → `encoding`
+5. **`EncodeVideoJob::dispatch($video)` でジョブを `jobs` テーブルに INSERT**（Phase 7〜）
+6. Web タスクはここで即座にレスポンスを返す（ユーザーは待たされない）
 
-#### エンコード段階（同期処理 Phase 1）
-5. S3から元動画をダウンロード（EC2のtmpディレクトリ）
-6. FFmpegでエンコード実行
+#### エンコード段階（laravel-worker タスクで非同期実行、Phase 7〜）
+7. `php artisan queue:work` で常駐する Worker タスクが `jobs` テーブルをポーリング
+8. ジョブを取得し、S3から元動画をダウンロード（コンテナ内 `/tmp`）
+9. FFmpegでエンコード実行
    - 出力形式: mp4 (H.264 video / AAC audio)
    - 最大解像度: 1080p
-   - タイムアウト: 5分
-7. エンコード成功時:
-   - エンコード済み動画をS3にアップロード（パス: `users/{user_id}/encoded/{video_id}.mp4`）
-   - 元動画をS3から削除
-   - status更新: `encoding` → `completed`
-8. エンコード失敗時:
-   - `retry_count` をインクリメント
-   - retry_count < 3 ならリトライ
-   - retry_count >= 3 なら status更新: `encoding` → `failed`
-   - エラーメッセージを `error_message` に保存
+   - タイムアウト: 900 秒（Job の `$timeout`）
+10. エンコード成功時:
+    - エンコード済み動画をS3にアップロード（パス: `users/{user_id}/encoded/{video_id}.mp4`）
+    - 元動画をS3から削除
+    - status更新: `encoding` → `completed`
+    - `jobs` テーブルから該当ジョブを DELETE
+11. エンコード失敗時:
+    - Laravel Queue 標準の `attempts` がインクリメントされる
+    - `tries=3` 未満ならバックオフ後にリトライ
+    - 3 回失敗時:
+      - status更新: `encoding` → `failed`
+      - エラーメッセージを `error_message` に保存
+      - `failed_jobs` テーブルに INSERT、`jobs` から DELETE
 
-**成功時**: ユーザーに「動画のエンコードが完了しました」と通知
+**成功時**: ユーザーに「動画のエンコードが完了しました」と通知（ステータスポーリングで検知）
 **失敗時**: 「動画のエンコードに失敗しました。別の動画をお試しください」と通知
+
+**Phase 6 まで（廃止）**: VideoController から VideoEncoderService を同期呼び出ししていた。リクエストが最大 15 分ブロックされる問題があったため Phase 7 で置換。
 
 ---
 
@@ -450,17 +472,17 @@ sequenceDiagram
 ---
 
 ### FFmpeg（動画エンコード）
-- **連携内容**: 動画フォーマット変換（Phase 1: EC2上で同期実行）
+- **連携内容**: 動画フォーマット変換（Phase 7〜: laravel-worker タスクで `EncodeVideoJob` として非同期実行）
 - **入力形式**: mp4, mov, avi, wmv等の一般的な動画フォーマット
 - **出力形式**: mp4 (H.264 video / AAC audio)
 - **エンコード設定**:
   - 最大解像度: 1080p
   - ビットレート: 自動調整
-  - タイムアウト: 5分
+  - Job タイムアウト: 900 秒
 - **エラー処理**:
-  - エンコード失敗時: 最大3回リトライ
-  - 3回失敗後: status を `failed` に更新、error_messageを保存
-  - ユーザーに失敗通知を表示
+  - Laravel Queue 標準の `tries=3` でリトライ
+  - 3回失敗後: `failed_jobs` テーブルに記録、videos.status を `failed` に更新、error_messageを保存
+  - ユーザーに失敗通知を表示（`/videos` のステータスポーリング経由）
 
 ---
 
@@ -499,15 +521,16 @@ sequenceDiagram
 ## 補足事項
 
 ### エンコード処理の注意点
-- **Phase 1**: EC2上で同期処理のため、1件ずつ順次処理
-- **同時エンコード**: 複数ユーザーが同時アップロードした場合、キューで順番待ち
-- **タイムアウト**: エンコードが5分を超えた場合は処理中断
-- **リソース監視**: CloudWatchでEC2のCPU使用率を監視
+- **Phase 7〜**: laravel-worker タスクで `EncodeVideoJob` として非同期実行
+- **同時エンコード**: 同一 Worker タスク内では順次処理。並列度を上げる場合は `queue:work --queue=default` を複数プロセスで起動、または Worker タスクの `desiredCount` を増やす
+- **タイムアウト**: Job の `$timeout = 900` 秒、超過時は Laravel が SIGTERM 送信して中断
+- **リソース監視**: CloudWatch Logs の `awslogs` ドライバで Worker タスクのログを集約。CPU/メモリは EC2 メトリクスで監視
 
-### Phase 2での改善予定
-- **非同期エンコード**: ECS + Lambda に移行し、並列処理を可能に
-- **プログレス表示**: WebSocketでエンコード進捗をリアルタイム通知
-- **CDN配信**: CloudFrontを導入し、S3の前段でキャッシュ
+### Phase 8〜9 での改善予定
+- **オートスケーリング（Phase 8）**: Worker タスクの `desiredCount` を SQS/jobs テーブルの待ち件数で自動増減（Application Auto Scaling）
+- **プログレス表示**: WebSocket でエンコード進捗をリアルタイム通知
+- **CDN 配信（Phase 9）**: CloudFront を導入し、S3 の前段でキャッシュ（Node.js 版 SPA は Phase 7 で先行対応済み）
+- **Fargate 移行（Phase 9）**: Worker タスクを Spot Fargate に切替してコスト削減
 
 ### キャッシュ機構
 - **公開プロフィール**: `Cache::remember()` でプロフィール情報を5分間キャッシュ

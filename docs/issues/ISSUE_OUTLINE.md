@@ -25,6 +25,9 @@
 ### Phase 6: チャットボット・DB統合（#28〜#29）
 ログイン後ユーザー向けFAQチャットボット（RAG）を実装し、その後チャットボット用のPostgreSQLとアプリ本体のMySQLを単一のPostgreSQL DBに統合する。
 
+### Phase 7: ECS コンテナ化・運用基盤強化（#30〜#35）
+EC2 単体構成から ECS on EC2 起動タイプ + ECR によるコンテナ運用へ移行。動画エンコードを Laravel Queue Job 化して非同期実行に切り替える。AWS リソースは AWS マネジメントコンソールで構築（IaC化は Phase 8 以降）、デプロイは GitHub Actions ではなくローカル PC のシェルスクリプトで実施。EC2 ホスト直接運用への fallback も維持（`docs/operations/ec2_fallback.md`）。AWS 月額 $30 予算は堅持。詳細プラン: `docs/plans/ecs_ecr_migration_phase1.md`。
+
 ---
 
 ## 依存関係マップ
@@ -55,6 +58,11 @@ Phase 5: 動画表示
 
 Phase 6: チャットボット・DB統合
 #7 → #28 → #29
+
+Phase 7: ECS コンテナ化・運用基盤強化
+#17, #18 → #30
+#30 → #31 → #32 → #33 → #34 → #35
+#22 → #35（CloudWatch 監視を ECS awslogs 統合へ置換）
 ```
 
 ---
@@ -585,6 +593,118 @@ Phase 6: チャットボット・DB統合
 - [ ] ローカルでクリーンビルド（`migrate:fresh --seed` + `chatbot:index --fresh`）が成功する
 - [ ] `chat_messages.user_id → users.id` の FK 制約が PostgreSQL に張られている
 - [ ] 本番 RDS が PostgreSQL に切替完了し、旧 MySQL RDS が削除されている
+
+---
+
+### Phase 7: ECS コンテナ化・運用基盤強化
+
+#### Issue #30: 動画エンコードの Queue Job 化
+
+**概要**: `VideoController::store()` で同期実行していた `VideoEncoderService::encodeWithRetry()` を、Laravel Queue Job `EncodeVideoJob`（`database` ドライバ）に置換。Web リクエストは即時応答し、Worker タスクで非同期エンコードを実行する。
+
+**依存**: #17, #18
+
+**タスク領域**: backend
+
+**受け入れ基準(AC)**:
+- [ ] `app/Jobs/EncodeVideoJob.php` が新規作成され、`ShouldQueue` 実装・`tries=3`・`timeout=900` が設定されている
+- [ ] `VideoController::store()` が `EncodeVideoJob::dispatch($video)` を呼び出し、レスポンスを即返却する
+- [ ] `php artisan queue:work` で Job が実行され、`videos.status` が `encoding → completed` に遷移する
+- [ ] エンコード 3 回失敗時に `failed_jobs` テーブルに記録され、`videos.status = failed` になる
+- [ ] 既存の `retry_count` カラム依存ロジックが整理され、Laravel Queue 標準の `attempts` に統一されている
+- [ ] `.env.example` の `QUEUE_CONNECTION=database` が確認される
+
+---
+
+#### Issue #31: Laravel 版コンテナ化（Dockerfile + ECR push）
+
+**概要**: Laravel 版の本番 Docker イメージを作成し、ECR リポジトリへ push できる状態にする。マルチステージビルドで本番最適化、nginx + php-fpm + ffmpeg を同梱した単一コンテナとして起動。
+
+**依存**: #30
+
+**タスク領域**: infra, backend
+
+**受け入れ基準(AC)**:
+- [ ] `docker/php/Dockerfile.prod` がマルチステージ（composer → node → php-fpm-alpine）で作成される
+- [ ] supervisord で nginx + php-fpm を同居起動する設定が完成
+- [ ] `entrypoint.sh` で `config:cache`、`route:cache`、`view:cache`、`migrate --force` が実行される
+- [ ] ECR リポジトリ `movie-prf-laravel` が CloudFormation で作成される（ライフサイクル: untagged 7 日、tagged 10 個保持）
+- [ ] `docker buildx build --platform linux/amd64 --push` で ECR に push できる
+- [ ] ローカルで `docker compose -f docker-compose.prod.yml up` で `/up` が 200 を返す
+
+---
+
+#### Issue #32: ECS on EC2 クラスタ構築（AWSコンソール作業 + swap + agent）
+
+**概要**: 既存 EC2 を ECS Container Instance として登録するための環境を整備。swap 2GiB 追加、Docker・ecs-init インストール、ECS クラスター・タスク定義・サービスを AWS マネジメントコンソールで作成する（IaC 化は Phase 8 以降で検討）。
+
+**依存**: #31
+
+**タスク領域**: infra
+
+**受け入れ基準(AC)**:
+- [ ] EC2 に swap 2GiB が `/swapfile` で恒久化され、`free -m` で確認できる
+- [ ] EC2 に Docker と ecs-init がインストールされ、`ECS_CLUSTER=movie-prf` が `/etc/ecs/ecs.config` に設定される
+- [ ] EC2 IAM Instance Profile に `AmazonEC2ContainerServiceforEC2Role` が付与される
+- [ ] AWSコンソールで ECS クラスター・タスク定義3種（laravel-web / laravel-worker / nodejs-api）・サービス3種が作成される
+- [ ] SSM Parameter Store にシークレットが格納され、Task Execution Role に `ssm:GetParameters` が付与される
+- [ ] `aws ecs list-container-instances --cluster movie-prf` で 1 台見える
+- [ ] ECS タスク 3 種が RUNNING、ヘルスチェック PASS
+
+---
+
+#### Issue #33: EC2 ホスト nginx をリバプロ専用に再構成
+
+**概要**: EC2 ホスト上の nginx を、PHP-FPM への直接プロキシから ECS タスクへのリバースプロキシに切替。既存の Let's Encrypt 証明書はそのまま利用し、`127.0.0.1:8080` の laravel-web コンテナへ転送する。
+
+**依存**: #32
+
+**タスク領域**: infra
+
+**受け入れ基準(AC)**:
+- [ ] `/etc/nginx/conf.d/hozu.click.conf` が `proxy_pass http://127.0.0.1:8080` に書き換えられる
+- [ ] `client_max_body_size 100M`、`proxy_read_timeout 300s` が維持される
+- [ ] 旧 `location ~ \.php$` ブロックは `.bak` で残し、PHP-FPM サービスは `systemctl disable --now php-fpm`
+- [ ] `nginx -t` が合格し、`systemctl reload nginx` でリロードできる
+- [ ] `curl https://hozu.click/up` が 200 を返す
+- [ ] ロールバック手順（nginx 旧 conf 復元 + php-fpm 再起動）が動作確認される
+
+---
+
+#### Issue #34: ローカルデプロイスクリプト整備
+
+**概要**: Phase 7 は一人開発のため、GitHub Actions による自動 CI/CD は導入せず、ローカル PC から直接シェルスクリプトを実行してデプロイする（`scripts/deploy-laravel.sh`、`scripts/deploy-nodejs-api.sh`、`scripts/deploy-frontend.sh`）。GitHub Actions OIDC は Phase 8 以降で必要になったら導入。
+
+**依存**: #33
+
+**タスク領域**: infra, ops
+
+**受け入れ基準(AC)**:
+- [ ] `scripts/deploy-laravel.sh` が動作し、ローカル実行で ECS が更新される
+- [ ] `scripts/deploy-nodejs-api.sh` が動作する（Node.js リポジトリ側）
+- [ ] `scripts/deploy-frontend.sh` が動作し、S3 sync + CloudFront invalidation が走る
+- [ ] スクリプト実行に必要な IAM ユーザーが作成され、`aws configure` で本人マシンに設定される
+- [ ] デプロイ後、`aws ecs describe-services` で新タスク定義が反映されている
+- [ ] ロールバック（前バージョンのタスク定義 ARN への切戻し）が 30 秒以内に完了する
+
+---
+
+#### Issue #35: CloudWatch Logs 統合・本番切替・検証
+
+**概要**: ECS タスク定義に `awslogs` ドライバを設定して、コンテナログを CloudWatch Logs に集約。旧 CloudWatch Agent によるファイル収集（Issue #22）から置き換える。本番切替手順・チェックリスト・ロールバック手順を整備し、最終的に本番運用へ切り替える。
+
+**依存**: #34
+
+**タスク領域**: infra, ops
+
+**受け入れ基準(AC)**:
+- [ ] 各タスク定義の `logConfiguration.logDriver = "awslogs"`、`awslogs-group = /ecs/movie-prf/<task-name>`（retention 7 日）が設定される
+- [ ] CloudWatch Logs で laravel-web / laravel-worker の stdout が確認できる
+- [ ] 旧 CloudWatch Agent のファイル収集設定は無効化（Issue #22 の置換）
+- [ ] 本番切替チェックリスト（`docs/plans/ecs_ecr_migration_phase1.md` 参照）が完了している
+- [ ] 動画アップロード→Queue→encoding→completed の一連フローが本番で確認される
+- [ ] swap 使用率が CloudWatch Metrics で監視され、200MiB 超が継続するなら t3.small へアップグレード判断
+- [ ] ロールバック手順が文書化され、検証済み
 
 ---
 

@@ -1,10 +1,13 @@
 # Issue #18: エンコードリトライ・エラーハンドリング実装
 
+> **⚠️ Phase 7 で置換予定**: 本 issue で実装した独自リトライロジック（`retry_count` カラム＋3 回ループ）は、Phase 7 の Issue #30 で **Laravel Queue 標準の `$tries=3` と `failed_jobs` テーブル** に置き換える。エラーメッセージ保存ロジックは `EncodeVideoJob::failed()` メソッドへ移行する。詳細: `docs/plans/ecs_ecr_migration_phase1.md`
+
 ## 背景 / 目的
 
 エンコード失敗時のリトライロジック（最大3回）とエラーメッセージ保存を実装し、エンコード処理の堅牢性を高める。失敗した動画には適切なエラーメッセージを表示し、ユーザーに次の行動を促す。
 
 - **依存**: #17
+- **後続**: #30（Queue Job 化で Laravel 標準機能に統合）
 - **ラベル**: backend
 
 ---

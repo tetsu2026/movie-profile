@@ -59,30 +59,31 @@ RDS:
 
 ## 重要な実装ファイル
 
-### 新規作成
+### 新規作成（アプリ・スクリプトのみ。AWS リソースはコンソールで作成）
 - `movie_prf_pj/docker/php/Dockerfile.prod` — マルチステージ本番イメージ
 - `movie_prf_pj/docker/php/supervisord.conf` — nginx + php-fpm 同居起動
 - `movie_prf_pj/docker/php/entrypoint.sh` — config/route/view cache + migrate
 - `movie_prf_pj/app/Jobs/EncodeVideoJob.php` — 動画エンコードQueue Job化
-- `movie_prf_pj/infrastructure/ecs/task-def-laravel-web.json`
-- `movie_prf_pj/infrastructure/ecs/task-def-laravel-worker.json`
-- `movie_prf_pj/.github/workflows/deploy.yml`
+- `movie_prf_pj/scripts/deploy-laravel.sh` — ローカルからのデプロイスクリプト
+- `movie_prf_pj/docs/operations/ec2_fallback.md` — ハイブリッド方式の EC2 fallback 手順
 - `movie-prf-node/docker/node/Dockerfile.prod` — マルチステージ本番イメージ
-- `movie-prf-node/infrastructure/ecs/task-def-nodejs-api.json`
-- `movie-prf-node/.github/workflows/deploy-api.yml`
-- `movie-prf-node/.github/workflows/deploy-frontend.yml`
+- `movie-prf-node/scripts/deploy-nodejs-api.sh` — Node.js API のデプロイスクリプト
+- `movie-prf-node/scripts/deploy-frontend.sh` — frontend S3+CloudFront のデプロイスクリプト
 - `movie-prf-node/frontend/.env.production` — `VITE_API_URL=/api`（同ドメインのため相対パス維持で可）
-- `movie_prf_pj/infrastructure/cloudformation/templates/ecr.yaml` — 2リポジトリ + ライフサイクル
-- `movie_prf_pj/infrastructure/cloudformation/templates/cloudfront-spa.yaml` — S3 + OAC + CloudFront + 2 Behavior
-- `movie_prf_pj/infrastructure/cloudformation/templates/ecs-cluster.yaml`
+
+### AWS リソース（AWSコンソールで作成、IaC化はしない）
+- ECR リポジトリ: `movie-prf-laravel`, `movie-prf-node`
+- ECS クラスター `movie-prf` + タスク定義3種（laravel-web / laravel-worker / nodejs-api）+ サービス3種
+- IAM ロール: `ecsTaskExecutionRole`, `movie-prf-task-role`
+- SSM Parameter Store: `/movie-prf/laravel/*`, `/movie-prf/node/*`
+- CloudWatch ロググループ: `/ecs/movie-prf/<task-name>`
+- S3 バケット `movie-prf-spa-<account-id>` + OAC + CloudFront ディストリビューション
+- ACM 証明書（us-east-1）: `node.hozu.click`
 
 ### 修正
 - `movie_prf_pj/app/Http/Controllers/VideoController.php` — `encodeWithRetry` → `EncodeVideoJob::dispatch` に置換
 - `movie-prf-node/frontend/src/api/client.ts` — baseURL は `/api` 相対のまま（案A採用のため変更不要、再確認のみ）
 - `/etc/nginx/conf.d/movie-prf.conf` （EC2 host上）— リバプロ先をPHP-FPM/PM2 → コンテナポートへ
-- `movie_prf_pj/infrastructure/cloudformation/templates/rds.yaml` — MySQL → PostgreSQL に整合化（**本番RDSは触らない**、テンプレ整合のみ）
-- `movie_prf_pj/infrastructure/cloudformation/templates/iam.yaml` — ECS Task Role / Execution Role / GitHub OIDC Role追加
-- `movie_prf_pj/infrastructure/cloudformation/main.yaml` — ECR/ECS/CloudFront スタック呼び出し追加
 
 ---
 
@@ -112,9 +113,17 @@ RDS:
 - session/cache/queueは **`database`ドライバで統一**（Redis障害時の影響回避、$0追加）
 
 ### Step 3: ECRリポジトリ作成 + 初回手動push（0.5日）
-- AWS CLI でap-northeast-1に2リポジトリ作成: `movie-prf-laravel`, `movie-prf-node`
-- ライフサイクル: untagged 7日でexpire、tagged 直近10個保持
-- `docker buildx build --platform linux/amd64 --push` で初回push
+- **AWS コンソール手順**（ap-northeast-1）:
+  - ECS コンソール → ECR → リポジトリを作成
+  - リポジトリ名: `movie-prf-laravel` および `movie-prf-node`
+  - タグの不変性: 無効（同一タグ上書きを許可）
+  - スキャン: プッシュ時にスキャン（オプション）
+  - ライフサイクルポリシー設定: untagged 7日でexpire、tagged 直近10個保持
+- ローカルから初回 push:
+  ```
+  aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin <account>.dkr.ecr.ap-northeast-1.amazonaws.com
+  docker buildx build --platform linux/amd64 --push -t <account>.dkr.ecr.ap-northeast-1.amazonaws.com/movie-prf-laravel:initial -f docker/php/Dockerfile.prod .
+  ```
 
 ### Step 4: EC2 swap追加 + Docker/ECS agentインストール（0.5日）
 ```bash
@@ -133,7 +142,7 @@ sudo systemctl enable --now ecs
 - EC2のIAM Instance Profileに `AmazonEC2ContainerServiceforEC2Role` を追加
 - 既存PHP-FPMはStep 7のnginx切替後に `systemctl disable --now`
 
-### Step 5: ECSクラスタ + タスク定義作成（1日）
+### Step 5: ECSクラスタ + タスク定義作成（1日、AWSコンソール作業）
 
 | タスク | image | command | memory | port |
 |---|---|---|---|---|
@@ -141,11 +150,25 @@ sudo systemctl enable --now ecs
 | `laravel-worker` | movie-prf-laravel | `queue:work` | 200MiB | - |
 | `nodejs-api` | movie-prf-node | `node dist/main` | 280MiB | 8081→3000 |
 
-- ECSクラスタ `movie-prf` を作成、既存EC2を手動register（ASG未使用、Phase 1限定）
-- network mode: `bridge`、`desiredCount=1`、`minimumHealthyPercent=0, maximumPercent=100`
+- **AWS コンソール手順**:
+  1. ECS コンソール → クラスター → クラスターの作成
+     - クラスター名: `movie-prf`
+     - インフラストラクチャ: EC2 インスタンス（既存EC2を使うので新規ASGは作らず、Step 4で手動登録）
+  2. タスク定義 → 新しいタスク定義の作成
+     - 起動タイプの互換性: EC2
+     - ネットワークモード: bridge
+     - 上記表の3種類を作成
+     - 環境変数 → `Add valueFrom` で SSM Parameter Store の ARN を指定
+  3. サービスの作成（クラスター → サービス → 作成）
+     - 起動タイプ: EC2
+     - 必要なタスク数: 1
+     - 最小ヘルシー率: 0%、最大率: 100%（メモリ制約のため新旧並走させない）
 - 環境変数は **SSM Parameter Store SecureString** に格納（Secrets Manager は $0.40/secret/月で予算圧迫のため不採用）
-- Task Execution Role に `ssm:GetParameters` + `kms:Decrypt` 権限
-- Task Role に S3 動画バケット read/write
+  - SSM コンソール → パラメータストア → パラメータの作成
+  - 例: `/movie-prf/laravel/APP_KEY`、`/movie-prf/laravel/DB_PASSWORD`
+- IAM ロールはコンソールで作成:
+  - `ecsTaskExecutionRole`: マネージドポリシー `AmazonECSTaskExecutionRolePolicy` + SSM/KMS Read
+  - `movie-prf-task-role`: S3 動画バケット read/write
 
 ### Step 6: Redis をホスト側で起動（0.25日）
 ```
@@ -163,29 +186,63 @@ sudo systemctl enable --now redis6
 - `client_max_body_size 100M;` `proxy_read_timeout 300s;` 維持
 - 旧 `location ~ \.php$` ブロックと PHP-FPM サービスを `systemctl disable --now php-fpm` で停止（confはbackupとして残す）
 
-### Step 8: Node.js版 frontend を S3+CloudFront へ移行（0.5–1日）
+### Step 8: Node.js版 frontend を S3+CloudFront へ移行（0.5–1日、AWSコンソール作業）
 - `frontend/src/api/client.ts` のbaseURLは `/api` 相対のまま（案A: 同ドメイン下で動くため変更不要）
-- S3バケット `movie-prf-spa-<account-id>` をPrivate作成、OACでCloudFrontからのみ許可
-- CloudFront Distribution:
-  - Origin 1: S3 OAC
-  - Origin 2: EC2 (`node.hozu.click` ではなく、EC2のElastic IPまたは別ホスト名を直接指定)
-  - Behavior `Default (/*)`: S3 origin、`CachingOptimized`
-  - **Behavior `/api/*`**: EC2 origin、`CachingDisabled`、All Headers/Cookies/Query forward
-  - Custom error 403/404 → `/index.html` 200（SPA fallback）
-  - Alternate domain: `node.hozu.click`
-  - ACM 証明書を us-east-1 で発行
-- Route 53 で `node.hozu.click` を CloudFront ディストリビューションに Alias 切替
-- 初回デプロイ: `cd frontend && npm run build && aws s3 sync dist/ s3://movie-prf-spa-<id>/ --delete && aws cloudfront create-invalidation --distribution-id <id> --paths '/*'`
+- **AWS コンソール手順**:
+  1. S3 コンソール → バケット作成
+     - バケット名: `movie-prf-spa-<account-id>`
+     - パブリックアクセスをすべてブロック: 有効
+  2. ACM コンソール（**us-east-1 に切替**）→ 証明書をリクエスト
+     - ドメイン名: `node.hozu.click`
+     - DNS検証 → Route 53 にCNAMEレコードを自動追加
+  3. CloudFront コンソール → ディストリビューションの作成
+     - Origin 1: S3 バケット選択 + OAC (Origin Access Control) で作成
+     - Origin 2: EC2 (`node.hozu.click` ではなく EC2 のElastic IP または別ホスト名)
+     - Default Behavior `/*`: S3 origin、`CachingOptimized`
+     - Behavior `/api/*` を追加: EC2 origin、`CachingDisabled`、All Headers/Cookies/Query forward
+     - カスタムエラーレスポンス: 403/404 → `/index.html` 200（SPA fallback）
+     - 代替ドメイン名: `node.hozu.click`、ACM 証明書を選択
+  4. Route 53 コンソール → `node.hozu.click` レコードを CloudFront ディストリビューションへAlias切替
+- 初回デプロイ:
+  ```
+  cd frontend && npm run build
+  aws s3 sync dist/ s3://movie-prf-spa-<id>/ --delete
+  aws cloudfront create-invalidation --distribution-id <id> --paths '/*'
+  ```
 
 **注意**: CloudFront の origin に EC2 を指定する場合、EC2側のSSL証明書名と origin host header の整合が必要。EC2 nginx に `node-origin.hozu.click` などのサーバー名を別途設定するか、`node.hozu.click` のCNAMEをCloudFront切替前に origin 用に別ホスト名で発行しておく。
 
-### Step 9: GitHub Actions CI/CD（0.5日）
-- 各リポジトリに `.github/workflows/deploy.yml`
-- AWS 認証は **OIDC**（IAM長期キー作成不要）
-- `GitHubActionsDeployRole` Trust policy で `token.actions.githubusercontent.com` を信頼
-- 権限: ECR push、ECS update-service、ECS register-task-definition、S3 sync、CloudFront invalidation
-- フロー: `docker buildx --push :sha` → `register-task-definition` → `update-service`
-- frontendは別job: `npm run build && aws s3 sync && cloudfront invalidate`
+### Step 9: ローカルデプロイスクリプト整備（0.25日）
+**方針**: Phase 7 は一人開発のため GitHub Actions を使わず、ローカル PC からシェルスクリプトでデプロイする。シンプルで透明性が高い。GitHub Actions OIDC は将来複数人開発になった時に Phase 8 以降で導入。
+
+- `scripts/deploy-laravel.sh` 新規作成（Laravel リポジトリ）
+- `scripts/deploy-nodejs-api.sh` 新規作成（Node.js リポジトリ）
+- `scripts/deploy-frontend.sh` 新規作成（Node.js リポジトリ、S3+CloudFront用）
+
+スクリプト構成:
+```
+#!/bin/bash
+set -e
+TAG=$(git rev-parse --short HEAD)
+ECR=<account>.dkr.ecr.ap-northeast-1.amazonaws.com/movie-prf-laravel
+
+# 1. ECR ログイン
+aws ecr get-login-password --region ap-northeast-1 \
+  | docker login --username AWS --password-stdin $ECR
+
+# 2. イメージビルド & push
+docker buildx build --platform linux/amd64 \
+  -t $ECR:$TAG -t $ECR:latest \
+  -f docker/php/Dockerfile.prod --push .
+
+# 3. ECS サービス再起動（既存タスク定義の image:latest を pull し直す）
+aws ecs update-service --cluster movie-prf \
+  --service laravel-web --force-new-deployment
+aws ecs update-service --cluster movie-prf \
+  --service laravel-worker --force-new-deployment
+```
+
+実行は手元で `./scripts/deploy-laravel.sh` するだけ。AWS CLI と Docker buildx がインストールされていれば動く。
 
 ### Step 10: CloudWatch Logs統合（0.25日）
 - 各タスク定義の `logConfiguration.logDriver = "awslogs"`
@@ -216,25 +273,28 @@ sudo systemctl enable --now redis6
 ## デプロイフロー
 
 ```
-[git push to main]
+[ローカルで git commit]
      ↓
-[GitHub Actions OIDC 認証]
+[手元から ./scripts/deploy-laravel.sh 実行]
      ↓
-[backend Job]                         [frontend Job (Node.js版のみ)]
-docker buildx --push :sha             npm ci && npm run build
-     ↓                                aws s3 sync dist/ s3://...
-register-task-definition              cloudfront create-invalidation
+docker buildx build --push :sha (ECRへpush)
      ↓
-update-service (ECS)
+aws ecs update-service --force-new-deployment
      ↓
 ECS rolling deploy (新タスク起動 → ヘルスチェックOK → 旧タスク停止)
 ※ minimumHealthyPercent=0 のため数秒のダウンタイム
+
+frontend (Node.js版のみ、別スクリプト):
+[ローカルで ./scripts/deploy-frontend.sh 実行]
+     ↓
+npm run build → aws s3 sync dist/ → cloudfront create-invalidation
 ```
 
 **ロールバック**:
 - ECS: 前バージョンのタスク定義ARN は ECS コンソールに残るため、`aws ecs update-service --task-definition <prev-arn>` で30秒以内に切戻し
 - frontend: 前回ビルドの `dist-prev/` を保持、または `git revert` → 再デプロイ
 - nginx設定: 旧confを `/etc/nginx/conf.d/*.bak` でバックアップ、`systemctl start php-fpm` で完全旧構成に戻す（5分以内）
+- **完全な EC2 fallback（ECS化なし構成への戻し）**: `docs/operations/ec2_fallback.md` のハイブリッド方式手順を参照
 
 ---
 
@@ -242,7 +302,8 @@ ECS rolling deploy (新タスク起動 → ヘルスチェックOK → 旧タス
 
 | 項目 | 月額 | 備考 |
 |---|---|---|
-| EC2 t3.micro | $7.50 | 既存、変更なし |
+| EC2 t3.micro | $7.50 | 既存、変更なし（ECS Container Instance として利用） |
+| **ECS (コントロールプレーン)** | **$0** | **AWS が無料提供（EC2起動タイプ・Fargateとも）** |
 | RDS db.t3.micro PostgreSQL | $12.50 | 既存、変更なし |
 | S3 (SPA) | $0.10 | 数十MB |
 | CloudFront | $0–$1 | 1TB/月 + 1000万req/月の永続無料枠内 |
@@ -325,7 +386,8 @@ ECS rolling deploy (新タスク起動 → ヘルスチェックOK → 旧タス
 | 6 | Redis ホスト設定 | 0.25日 |
 | 7 | nginx リバプロ再構成 | 0.5日 |
 | 8 | S3+CloudFront 移行 | 0.5–1日 |
-| 9 | GitHub Actions CI/CD | 0.5日 |
+| 9 | ローカルデプロイスクリプト整備 | 0.25日 |
 | 10 | CloudWatch Logs統合 | 0.25日 |
+| - | EC2 fallback 手順書整備 | 0.25日 |
 | - | 検証・本番切替 | 1日 |
 | **合計** | | **6–8日** |

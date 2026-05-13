@@ -14,10 +14,11 @@ ECS タスク定義に `awslogs` ドライバを設定して、コンテナロ�
 
 ## スコープ / 作業項目
 
-### 1. CloudWatch ロググループ作成
-- `/ecs/movie-prf/laravel-web`（retention 7 日）
-- `/ecs/movie-prf/laravel-worker`（retention 7 日）
-- CloudFormation `templates/cloudwatch-logs.yaml` を新規作成
+### 1. CloudWatch ロググループ作成（AWSコンソール、Issue #32 で既に作成済みの場合は確認のみ）
+- CloudWatch コンソール → ロググループ → ロググループを作成
+- `/ecs/movie-prf/laravel-web`（保持期間 7 日）
+- `/ecs/movie-prf/laravel-worker`（保持期間 7 日）
+- `/ecs/movie-prf/nodejs-api`（保持期間 7 日）
 
 ### 2. タスク定義に awslogs 設定
 ```json

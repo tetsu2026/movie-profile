@@ -17,7 +17,7 @@
 - **ライブラリ**: getID3（動画メタデータ取得）, @tailwindcss/forms（フォームスタイル）, aws/aws-sdk-php（Bedrock呼び出し）
 - **テスト**: Pest（ユニット/フィーチャーテスト）, Playwright（E2Eテスト）
 - **シークレット管理**: AWS Systems Manager Parameter Store（SecureString）
-- **CI/CD**: GitHub Actions（OIDC 認証、ECR push + ECS update-service）
+- **デプロイ**: ローカル PC のシェルスクリプト（`scripts/deploy-*.sh`）で ECR push + ECS update-service を実行（Phase 8 以降で GitHub Actions OIDC への切替を検討）
 - **その他**: CloudWatch Logs（コンテナログを `awslogs` ドライバで集約）
 
 ## システム構成図
@@ -207,9 +207,10 @@ graph LR
   - 本番環境の構築・破棄が容易
   - パラメータで開発/本番環境を切り替え可能
 
-- **GitHub Actions (OIDC)**:
-  - IAM ユーザーの長期キーを保管せず、GitHub の OIDC プロバイダで一時クレデンシャル発行
-  - `docker buildx --push :sha` → `register-task-definition` → `update-service` のローリングデプロイ
+- **ローカルデプロイスクリプト**:
+  - Phase 7 は一人開発のため、GitHub Actions ではなくローカル PC から直接 `scripts/deploy-laravel.sh` 等を実行
+  - 中身: `docker buildx --push :sha` → `aws ecs update-service --force-new-deployment` のローリングデプロイ
+  - 複数人開発に移行する Phase 8 以降で GitHub Actions OIDC への切替を検討
 
 ### ローカル開発環境
 - **Docker + Docker Compose**:
@@ -267,6 +268,7 @@ graph LR
 
 ### 本番環境（AWS、Phase 7 ECS化後）
 - **EC2 (t3.micro)**: $7.50/月（ECS Container Instance として継続利用）
+- **ECS (コントロールプレーン)**: $0/月（AWS が無料提供、EC2 起動タイプも Fargate も同様）
 - **RDS Postgres 16 + pgvector (db.t4g.micro)**: $12.50/月（アプリ本体・チャットボット共通、jobs/failed_jobs テーブル含む）
 - **ECR**: $0〜$1.00/月（500MB まで無料、超過後 $0.10/GB）
 - **SSM Parameter Store (Standard)**: $0/月（無料）
@@ -307,8 +309,10 @@ graph LR
 ### Phase 7（実施中・本フェーズ）
 - **ECS on EC2 + ECR**: コンテナ運用化（Web タスク + Worker タスク）
 - **動画エンコード Queue Job 化**: `EncodeVideoJob` で非同期化、Web リクエストをブロックしない
-- **GitHub Actions OIDC CI/CD**: ECR push → ECS rolling deploy 自動化
+- **ローカルデプロイスクリプト**: `scripts/deploy-*.sh` で ECR push + ECS update-service を実行（GitHub Actions は Phase 8 以降で必要に応じて導入）
+- **AWS リソースは AWS マネジメントコンソールで構築**（CloudFormation 等の IaC 化は Phase 8 以降）
 - **CloudWatch Logs `awslogs` 統合**: コンテナログ集約
+- **EC2 ホスト直接運用への fallback も維持**（ハイブリッド方式、`docs/operations/ec2_fallback.md`）。Queue Job 化したコードは ECS でも EC2 ホスト上の systemd でも動かせる
 - 詳細: `docs/plans/ecs_ecr_migration_phase1.md`
 
 ### Phase 8（ECS 化後の発展）

@@ -42,11 +42,15 @@ Laravel 版の本番 Docker イメージを作成し、ECR リポジトリへ pu
 - listen 80, fastcgi_pass 127.0.0.1:9000
 - `client_max_body_size 100M`
 
-### 5. CloudFormation ECR テンプレ
-- `infrastructure/cloudformation/templates/ecr.yaml` を新規作成
-- リポジトリ: `movie-prf-laravel`
-- ライフサイクル: untagged 7 日 expire、tagged 直近 10 個保持
-- `main.yaml` から呼び出し
+### 5. ECR リポジトリ作成（AWSコンソール）
+- ECR コンソール → リポジトリを作成
+- リポジトリ名: `movie-prf-laravel`
+- タグの不変性: 無効
+- スキャン設定: プッシュ時にスキャン（オプション、推奨）
+- 暗号化: AES-256 (デフォルト)
+- 作成後、ライフサイクルポリシーを編集:
+  - ルール1: untagged 7 日 expire
+  - ルール2: tagged 直近 10 個保持
 
 ### 6. ローカルでのビルド・push 検証
 - `aws ecr get-login-password | docker login`
@@ -60,7 +64,7 @@ Laravel 版の本番 Docker イメージを作成し、ECR リポジトリへ pu
 - [ ] `docker/php/Dockerfile.prod` がマルチステージ（composer → node → php-fpm-alpine）で作成される
 - [ ] supervisord で nginx + php-fpm を同居起動する設定が完成
 - [ ] `entrypoint.sh` で `config:cache`、`route:cache`、`view:cache`、`migrate --force` が実行される
-- [ ] ECR リポジトリ `movie-prf-laravel` が CloudFormation で作成される（ライフサイクル: untagged 7 日、tagged 10 個保持）
+- [ ] ECR リポジトリ `movie-prf-laravel` が AWSコンソールで作成される（ライフサイクル: untagged 7 日、tagged 10 個保持）
 - [ ] `docker buildx build --platform linux/amd64 --push` で ECR に push できる
 - [ ] ローカルで `docker compose -f docker-compose.prod.yml up` で `/up` が 200 を返す
 

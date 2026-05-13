@@ -26,7 +26,7 @@
 ログイン後ユーザー向けFAQチャットボット（RAG）を実装し、その後チャットボット用のPostgreSQLとアプリ本体のMySQLを単一のPostgreSQL DBに統合する。
 
 ### Phase 7: ECS コンテナ化・運用基盤強化（#30〜#35）
-EC2 単体構成から ECS on EC2 起動タイプ + ECR + GitHub Actions OIDC によるコンテナ運用へ移行。動画エンコードを Laravel Queue Job 化して非同期実行に切り替える。AWS 月額 $30 予算は堅持。詳細プラン: `docs/plans/ecs_ecr_migration_phase1.md`。
+EC2 単体構成から ECS on EC2 起動タイプ + ECR によるコンテナ運用へ移行。動画エンコードを Laravel Queue Job 化して非同期実行に切り替える。AWS リソースは AWS マネジメントコンソールで構築（IaC化は Phase 8 以降）、デプロイは GitHub Actions ではなくローカル PC のシェルスクリプトで実施。EC2 ホスト直接運用への fallback も維持（`docs/operations/ec2_fallback.md`）。AWS 月額 $30 予算は堅持。詳細プラン: `docs/plans/ecs_ecr_migration_phase1.md`。
 
 ---
 
@@ -634,9 +634,9 @@ Phase 7: ECS コンテナ化・運用基盤強化
 
 ---
 
-#### Issue #32: ECS on EC2 クラスタ構築（CloudFormation + swap + agent）
+#### Issue #32: ECS on EC2 クラスタ構築（AWSコンソール作業 + swap + agent）
 
-**概要**: 既存 EC2 を ECS Container Instance として登録するための環境を整備。swap 2GiB 追加、Docker・ecs-init インストール、ECS クラスタとタスク定義を CloudFormation で作成する。
+**概要**: 既存 EC2 を ECS Container Instance として登録するための環境を整備。swap 2GiB 追加、Docker・ecs-init インストール、ECS クラスター・タスク定義・サービスを AWS マネジメントコンソールで作成する（IaC 化は Phase 8 以降で検討）。
 
 **依存**: #31
 
@@ -646,10 +646,10 @@ Phase 7: ECS コンテナ化・運用基盤強化
 - [ ] EC2 に swap 2GiB が `/swapfile` で恒久化され、`free -m` で確認できる
 - [ ] EC2 に Docker と ecs-init がインストールされ、`ECS_CLUSTER=movie-prf` が `/etc/ecs/ecs.config` に設定される
 - [ ] EC2 IAM Instance Profile に `AmazonEC2ContainerServiceforEC2Role` が付与される
-- [ ] CloudFormation テンプレ `templates/ecs-cluster.yaml` が新規作成され、ECS クラスタ・タスク定義（laravel-web / laravel-worker）が定義される
+- [ ] AWSコンソールで ECS クラスター・タスク定義3種（laravel-web / laravel-worker / nodejs-api）・サービス3種が作成される
 - [ ] SSM Parameter Store にシークレットが格納され、Task Execution Role に `ssm:GetParameters` が付与される
 - [ ] `aws ecs list-container-instances --cluster movie-prf` で 1 台見える
-- [ ] ECS タスク 2 種（web / worker）が RUNNING、ヘルスチェック PASS
+- [ ] ECS タスク 3 種が RUNNING、ヘルスチェック PASS
 
 ---
 
@@ -671,19 +671,19 @@ Phase 7: ECS コンテナ化・運用基盤強化
 
 ---
 
-#### Issue #34: GitHub Actions OIDC による CI/CD パイプライン
+#### Issue #34: ローカルデプロイスクリプト整備
 
-**概要**: GitHub Actions の OIDC 認証を使い、push 起点で「docker buildx → ECR push → ECS register-task-definition → update-service」のローリングデプロイを自動化する。IAM ユーザーの長期キーは作らない。
+**概要**: Phase 7 は一人開発のため、GitHub Actions による自動 CI/CD は導入せず、ローカル PC から直接シェルスクリプトを実行してデプロイする（`scripts/deploy-laravel.sh`、`scripts/deploy-nodejs-api.sh`、`scripts/deploy-frontend.sh`）。GitHub Actions OIDC は Phase 8 以降で必要になったら導入。
 
 **依存**: #33
 
-**タスク領域**: infra, ci
+**タスク領域**: infra, ops
 
 **受け入れ基準(AC)**:
-- [ ] CloudFormation で GitHub OIDC Provider と `GitHubActionsDeployRole` が定義される
-- [ ] Trust policy で `token.actions.githubusercontent.com` を信頼し、特定リポジトリのみ許可
-- [ ] `.github/workflows/deploy.yml` が新規作成され、`aws-actions/configure-aws-credentials@v4` で OIDC 認証する
-- [ ] master push で web/worker タスク両方が自動更新される
+- [ ] `scripts/deploy-laravel.sh` が動作し、ローカル実行で ECS が更新される
+- [ ] `scripts/deploy-nodejs-api.sh` が動作する（Node.js リポジトリ側）
+- [ ] `scripts/deploy-frontend.sh` が動作し、S3 sync + CloudFront invalidation が走る
+- [ ] スクリプト実行に必要な IAM ユーザーが作成され、`aws configure` で本人マシンに設定される
 - [ ] デプロイ後、`aws ecs describe-services` で新タスク定義が反映されている
 - [ ] ロールバック（前バージョンのタスク定義 ARN への切戻し）が 30 秒以内に完了する
 

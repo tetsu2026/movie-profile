@@ -1,0 +1,112 @@
+# =====================================================================
+# Phase 7 本番用 Dockerfile（マルチステージビルド）
+# =====================================================================
+# Stage 1: composer-deps  - PHP 依存パッケージのインストール
+# Stage 2: frontend-build - Vite による静的ファイルビルド
+# Stage 3: runtime        - 実行イメージ（nginx + php-fpm + ffmpeg + supervisord）
+# =====================================================================
+# ECS タスクは同じイメージを web/worker 両方で使う。
+# web タスク: デフォルト CMD で supervisord 起動 → nginx + php-fpm
+# worker タスク: CMD を `php artisan queue:work` に上書きして起動
+# =====================================================================
+
+
+# ============ Stage 1: composer-deps ============
+FROM composer:2 AS composer-deps
+
+WORKDIR /app
+COPY composer.json composer.lock ./
+
+# dev 依存は本番に不要、スクリプトはアプリコード未配置のため skip
+RUN composer install \
+    --no-dev \
+    --no-scripts \
+    --no-autoloader \
+    --prefer-dist \
+    --no-interaction
+
+
+# ============ Stage 2: frontend-build ============
+FROM node:20-alpine AS frontend-build
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY resources ./resources
+COPY vite.config.js ./
+COPY public ./public
+COPY tailwind.config.js postcss.config.js ./
+
+RUN npm run build
+
+
+# ============ Stage 3: runtime ============
+FROM php:8.2-fpm-alpine
+
+# OS パッケージ:
+# - nginx        : コンテナ内 nginx（fastcgi_pass で php-fpm へ）
+# - supervisor   : nginx と php-fpm を同居起動
+# - ffmpeg       : 動画エンコード
+# - tini         : PID 1 として動かしてシグナル処理を改善（ECS の stopTimeout 対策）
+# - PostgreSQL/画像/oniguruma 等の dev パッケージ: PHP 拡張ビルド用
+RUN apk add --no-cache \
+        nginx \
+        supervisor \
+        ffmpeg \
+        tini \
+        bash \
+        postgresql-dev \
+        libpng-dev \
+        oniguruma-dev \
+        libxml2-dev \
+        libzip-dev \
+        icu-dev \
+    && docker-php-ext-install \
+        pdo_pgsql \
+        mbstring \
+        exif \
+        pcntl \
+        bcmath \
+        gd \
+        zip
+
+# Composer は ECR push 前のローカルでも使えるよう同梱
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+
+WORKDIR /var/www/html
+
+# 依存と frontend ビルド成果物をコピー
+COPY --from=composer-deps /app/vendor ./vendor
+COPY --from=frontend-build /app/public/build ./public/build
+
+# アプリコード本体
+COPY . .
+
+# composer autoload 最適化（実コードを配置後に再生成）
+RUN composer dump-autoload --optimize --no-dev --no-interaction
+
+# storage / bootstrap/cache 権限
+RUN chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R ug+rwx storage bootstrap/cache
+
+# nginx / supervisord / entrypoint
+COPY docker/php/nginx.conf /etc/nginx/nginx.conf
+COPY docker/php/supervisord.conf /etc/supervisor/supervisord.conf
+COPY docker/php/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# nginx ランタイムディレクトリ
+RUN mkdir -p /run/nginx /var/log/nginx \
+    && chown -R www-data:www-data /run/nginx /var/log/nginx
+
+EXPOSE 80
+
+# tini を PID 1 に、entrypoint.sh で初期化、CMD で実プロセス起動
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/entrypoint.sh"]
+
+# デフォルトコマンド: web タスク用 supervisord（nginx + php-fpm 同居）
+# worker タスクでは ECS タスク定義で
+#   command: ["php", "artisan", "queue:work", "--tries=3", "--max-time=3600", "--sleep=3"]
+# に上書きする
+CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]

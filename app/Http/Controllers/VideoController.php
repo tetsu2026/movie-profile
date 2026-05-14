@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreVideoRequest;
+use App\Jobs\EncodeVideoJob;
 use App\Models\Profile;
 use App\Models\Video;
-use App\Services\VideoEncoderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -50,27 +50,22 @@ class VideoController extends Controller
                 throw new \Exception('S3へのアップロードに失敗しました');
             }
 
-            // 動画情報を更新
+            // 動画情報を更新（エンコード待ちステータス）
             $video->update([
                 'original_path' => $path,
                 'file_size' => $request->file('video')->getSize(),
                 'status' => 'encoding',
             ]);
 
-            // エンコード処理を実行（リトライロジック付き）
-            $encoderService = new VideoEncoderService();
-            $success = $encoderService->encodeWithRetry($video);
+            // エンコードジョブを Queue にディスパッチ（非同期実行）
+            // Worker タスク（`php artisan queue:work`）が拾って ffmpeg で処理する
+            EncodeVideoJob::dispatch($video);
 
-            if ($success) {
-                return redirect()->route('videos.index')
-                    ->with('success', '動画のアップロードとエンコードが完了しました');
-            } else {
-                return redirect()->route('videos.index')
-                    ->with('error', '動画のエンコードに失敗しました。別の動画をお試しください。');
-            }
+            return redirect()->route('videos.index')
+                ->with('success', 'アップロードが完了しました。エンコード処理を開始しました。');
 
         } catch (\Exception $e) {
-            // エラー時は動画レコードを削除
+            // S3 アップロードまでに失敗した場合は動画レコードを削除
             $video->delete();
 
             return redirect()->route('videos.create')

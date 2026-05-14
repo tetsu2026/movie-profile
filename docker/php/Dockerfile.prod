@@ -1,14 +1,21 @@
 # =====================================================================
-# Phase 7 本番用 Dockerfile（マルチステージビルド）
+# Phase 7 本番用 Dockerfile（マルチステージビルド・最適化版）
 # =====================================================================
-# Stage 1: composer-deps  - PHP 依存パッケージのインストール
-# Stage 2: frontend-build - Vite による静的ファイルビルド
-# Stage 3: runtime        - 実行イメージ（nginx + php-fpm + ffmpeg + supervisord）
+# Stage 0: ffmpeg-bin    - static link された ffmpeg バイナリだけ取得（-400MB）
+# Stage 1: composer-deps - PHP 依存パッケージのインストール
+# Stage 2: frontend-build- Vite による静的ファイルビルド
+# Stage 3: runtime       - 実行イメージ（nginx + php-fpm + ffmpeg + supervisord）
 # =====================================================================
 # ECS タスクは同じイメージを web/worker 両方で使う。
 # web タスク: デフォルト CMD で supervisord 起動 → nginx + php-fpm
 # worker タスク: CMD を `php artisan queue:work` に上書きして起動
 # =====================================================================
+
+
+# ============ Stage 0: ffmpeg-bin ============
+# apk add ffmpeg は依存ライブラリ含めて約500MB。
+# static link 済みの mwader/static-ffmpeg からバイナリだけ COPY して -400MB
+FROM mwader/static-ffmpeg:7.0 AS ffmpeg-bin
 
 
 # ============ Stage 1: composer-deps ============
@@ -19,11 +26,12 @@ COPY composer.json composer.lock ./
 
 # dev 依存は本番に不要、スクリプトはアプリコード未配置のため skip
 RUN composer install \
-    --no-dev \
-    --no-scripts \
-    --no-autoloader \
-    --prefer-dist \
-    --no-interaction
+        --no-dev \
+        --no-scripts \
+        --no-autoloader \
+        --prefer-dist \
+        --no-interaction \
+    && composer clear-cache
 
 
 # ============ Stage 2: frontend-build ============
@@ -31,7 +39,7 @@ FROM node:20-alpine AS frontend-build
 
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci && npm cache clean --force
 
 COPY resources ./resources
 COPY vite.config.js ./
@@ -44,23 +52,27 @@ RUN npm run build
 # ============ Stage 3: runtime ============
 FROM php:8.2-fpm-alpine
 
-# OS パッケージ:
-# - nginx        : コンテナ内 nginx（fastcgi_pass で php-fpm へ）
-# - supervisor   : nginx と php-fpm を同居起動
-# - ffmpeg       : 動画エンコード
-# - tini         : PID 1 として動かしてシグナル処理を改善（ECS の stopTimeout 対策）
-# - PostgreSQL/画像/oniguruma 等の dev パッケージ: PHP 拡張ビルド用
+# 実行時に必要なパッケージ + PHP 拡張ビルド用 dev パッケージを --virtual で
+# グループ化。ビルド完了後に --virtual を一括削除し、runtime に dev パッケージを残さない
+# ffmpeg は Stage 0 から static バイナリで COPY するので、ここでは apk add しない
 RUN apk add --no-cache \
         nginx \
         supervisor \
-        ffmpeg \
         tini \
         bash \
+        libpq \
+        libpng \
+        libxml2 \
+        libzip \
+        oniguruma \
+        icu-libs \
+    && apk add --no-cache --virtual .build-deps \
+        $PHPIZE_DEPS \
         postgresql-dev \
         libpng-dev \
-        oniguruma-dev \
         libxml2-dev \
         libzip-dev \
+        oniguruma-dev \
         icu-dev \
     && docker-php-ext-install \
         pdo_pgsql \
@@ -69,14 +81,17 @@ RUN apk add --no-cache \
         pcntl \
         bcmath \
         gd \
-        zip
+        zip \
+    && apk del .build-deps \
+    && rm -rf /var/cache/apk/* /tmp/*
 
-# Composer は ECR push 前のローカルでも使えるよう同梱
-COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+# Stage 0 から ffmpeg バイナリのみコピー（static link 済みで依存ライブラリ不要）
+COPY --from=ffmpeg-bin /ffmpeg /usr/local/bin/ffmpeg
+COPY --from=ffmpeg-bin /ffprobe /usr/local/bin/ffprobe
 
 WORKDIR /var/www/html
 
-# 依存と frontend ビルド成果物をコピー
+# Stage 1 と Stage 2 から成果物をコピー（Composer 自体は runtime に持ち込まない）
 COPY --from=composer-deps /app/vendor ./vendor
 COPY --from=frontend-build /app/public/build ./public/build
 
@@ -84,7 +99,25 @@ COPY --from=frontend-build /app/public/build ./public/build
 COPY . .
 
 # composer autoload 最適化（実コードを配置後に再生成）
-RUN composer dump-autoload --optimize --no-dev --no-interaction
+# vendor のテスト・ドキュメント・チェンジログ等を削除して軽量化（-30MB 程度）
+# Composer は build 時のみ必要なので、最後に削除
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+RUN composer dump-autoload --optimize --no-dev --no-interaction \
+    && composer clear-cache \
+    && find ./vendor -type d \( \
+        -name tests -o -name test -o -name Tests -o -name Test \
+        -o -name docs -o -name doc -o -name documentation \
+        -o -name examples -o -name example -o -name samples \
+        \) -prune -exec rm -rf {} + 2>/dev/null \
+    && find ./vendor -type f \( \
+        -name "*.md" -o -name "*.markdown" -o -name "*.rst" \
+        -o -name "CHANGELOG*" -o -name "HISTORY*" -o -name "UPGRADE*" \
+        -o -name "phpunit.xml*" -o -name "phpunit.dist*" \
+        -o -name ".gitattributes" -o -name ".gitignore" -o -name ".editorconfig" \
+        -o -name ".travis.yml" -o -name ".scrutinizer.yml" \
+        \) -delete 2>/dev/null \
+    && rm -f /usr/local/bin/composer \
+    && rm -rf ~/.composer /tmp/*
 
 # storage / bootstrap/cache 権限
 RUN chown -R www-data:www-data storage bootstrap/cache \

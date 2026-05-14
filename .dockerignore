@@ -1,0 +1,68 @@
+# =====================================================================
+# Docker build context 除外設定
+# 本番イメージに不要なファイル、機密情報、permission問題のあるディレクトリを除外
+# =====================================================================
+
+# Composer/Node の依存（Stage 1/2 で再インストールするので不要）
+node_modules/
+vendor/
+
+# 環境変数（シークレットなのでイメージに絶対含めない）
+.env
+.env.*
+!.env.example
+
+# Git
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Laravel ローカル状態（permission問題の原因含む、コンテナ内で再生成される）
+storage/framework/testing/
+storage/framework/cache/data/
+storage/framework/sessions/*
+!storage/framework/sessions/.gitignore
+storage/framework/views/*
+!storage/framework/views/.gitignore
+storage/logs/*
+!storage/logs/.gitignore
+storage/app/public/*
+!storage/app/public/.gitignore
+
+# テスト（本番イメージには不要）
+tests/
+phpunit.xml
+.phpunit.result.cache
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+
+# Docker 関連メタ（docker/ ディレクトリは Dockerfile で参照するので残す）
+.dockerignore
+docker-compose*.yml
+Dockerfile
+
+# ドキュメント・作業ファイル
+docs/
+infrastructure/
+*.md
+!README.md
+.playwright-mcp/
+playwright/
+playwright-report/
+test-results/
+
+# ローカル作業中ファイル（コミット対象外のもの）
+*.cosense.txt
+AGENTS.md
+ECR_ECS_consence.txt
+ToPostgressSQL.cosense.txt
+add_cosence.txt
+chatbot_implementation_log.cosense.txt
+node_npm_nest.txt
+npm_nest_node_new.txt
+*.png

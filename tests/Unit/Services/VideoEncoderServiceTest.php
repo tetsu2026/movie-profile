@@ -10,6 +10,13 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
 
+/**
+ * VideoEncoderService の単体テスト
+ *
+ * Phase 7 以降、リトライ機能と error_message 保存・status 更新は Laravel Queue の責務に移行した。
+ * VideoEncoderService は 1 回のエンコード試行に専念し、失敗時は例外を投げる。
+ * リトライ・失敗時の status 更新は EncodeVideoJob のテストで担保する。
+ */
 class VideoEncoderServiceTest extends TestCase
 {
     use RefreshDatabase;
@@ -21,7 +28,7 @@ class VideoEncoderServiceTest extends TestCase
     }
 
     #[Test]
-    public function encode_with_retry_increments_retry_count_on_failure(): void
+    public function encode_throws_exception_on_ffmpeg_failure(): void
     {
         $user = User::factory()->create();
         $video = Video::factory()->encoding()->create([
@@ -29,55 +36,13 @@ class VideoEncoderServiceTest extends TestCase
             'original_path' => 'users/1/original/test.mp4',
         ]);
 
-        // S3にダミーファイルを配置（存在しないとエラーになる）
-        Storage::disk('s3')->put($video->original_path, 'dummy content');
-
-        // エンコードを試行（FFmpegがないため失敗する）
-        $service = new VideoEncoderService();
-
-        // 最大リトライまで実行してfailedになることを確認
-        $result = $service->encodeWithRetry($video);
-
-        $video->refresh();
-        $this->assertFalse($result);
-        $this->assertEquals('failed', $video->status);
-        $this->assertEquals(3, $video->retry_count);
-    }
-
-    #[Test]
-    public function video_status_changes_to_failed_after_max_retries(): void
-    {
-        $user = User::factory()->create();
-        $video = Video::factory()->encoding()->create([
-            'user_id' => $user->id,
-            'original_path' => 'users/1/original/test.mp4',
-            'retry_count' => 0,
-        ]);
-
+        // S3 にダミーファイルを配置（FFmpeg が動画として認識できない内容なので失敗する）
         Storage::disk('s3')->put($video->original_path, 'dummy content');
 
         $service = new VideoEncoderService();
-        $service->encodeWithRetry($video);
 
-        $video->refresh();
-        $this->assertEquals('failed', $video->status);
-    }
-
-    #[Test]
-    public function error_message_is_saved_on_failure(): void
-    {
-        $user = User::factory()->create();
-        $video = Video::factory()->encoding()->create([
-            'user_id' => $user->id,
-            'original_path' => 'users/1/original/test.mp4',
-        ]);
-
-        Storage::disk('s3')->put($video->original_path, 'dummy content');
-
-        $service = new VideoEncoderService();
-        $service->encodeWithRetry($video);
-
-        $video->refresh();
-        $this->assertNotNull($video->error_message);
+        // 不正な動画ファイル or FFmpeg バイナリ不在で例外が投げられるはず
+        $this->expectException(\Exception::class);
+        $service->encode($video);
     }
 }

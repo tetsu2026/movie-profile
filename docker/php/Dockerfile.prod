@@ -1,0 +1,145 @@
+# =====================================================================
+# Phase 7 本番用 Dockerfile（マルチステージビルド・最適化版）
+# =====================================================================
+# Stage 0: ffmpeg-bin    - static link された ffmpeg バイナリだけ取得（-400MB）
+# Stage 1: composer-deps - PHP 依存パッケージのインストール
+# Stage 2: frontend-build- Vite による静的ファイルビルド
+# Stage 3: runtime       - 実行イメージ（nginx + php-fpm + ffmpeg + supervisord）
+# =====================================================================
+# ECS タスクは同じイメージを web/worker 両方で使う。
+# web タスク: デフォルト CMD で supervisord 起動 → nginx + php-fpm
+# worker タスク: CMD を `php artisan queue:work` に上書きして起動
+# =====================================================================
+
+
+# ============ Stage 0: ffmpeg-bin ============
+# apk add ffmpeg は依存ライブラリ含めて約500MB。
+# static link 済みの mwader/static-ffmpeg からバイナリだけ COPY して -400MB
+FROM mwader/static-ffmpeg:7.0 AS ffmpeg-bin
+
+
+# ============ Stage 1: composer-deps ============
+FROM composer:2 AS composer-deps
+
+WORKDIR /app
+COPY composer.json composer.lock ./
+
+# dev 依存は本番に不要、スクリプトはアプリコード未配置のため skip
+RUN composer install \
+        --no-dev \
+        --no-scripts \
+        --no-autoloader \
+        --prefer-dist \
+        --no-interaction \
+    && composer clear-cache
+
+
+# ============ Stage 2: frontend-build ============
+FROM node:20-alpine AS frontend-build
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci && npm cache clean --force
+
+COPY resources ./resources
+COPY vite.config.js ./
+COPY public ./public
+COPY tailwind.config.js postcss.config.js ./
+
+RUN npm run build
+
+
+# ============ Stage 3: runtime ============
+FROM php:8.2-fpm-alpine
+
+# 実行時に必要なパッケージ + PHP 拡張ビルド用 dev パッケージを --virtual で
+# グループ化。ビルド完了後に --virtual を一括削除し、runtime に dev パッケージを残さない
+# ffmpeg は Stage 0 から static バイナリで COPY するので、ここでは apk add しない
+RUN apk add --no-cache \
+        nginx \
+        supervisor \
+        tini \
+        bash \
+        libpq \
+        libpng \
+        libxml2 \
+        libzip \
+        oniguruma \
+        icu-libs \
+    && apk add --no-cache --virtual .build-deps \
+        $PHPIZE_DEPS \
+        postgresql-dev \
+        libpng-dev \
+        libxml2-dev \
+        libzip-dev \
+        oniguruma-dev \
+        icu-dev \
+    && docker-php-ext-install \
+        pdo_pgsql \
+        mbstring \
+        exif \
+        pcntl \
+        bcmath \
+        gd \
+        zip \
+    && apk del .build-deps \
+    && rm -rf /var/cache/apk/* /tmp/*
+
+# Stage 0 から ffmpeg バイナリのみコピー（static link 済みで依存ライブラリ不要）
+COPY --from=ffmpeg-bin /ffmpeg /usr/local/bin/ffmpeg
+COPY --from=ffmpeg-bin /ffprobe /usr/local/bin/ffprobe
+
+WORKDIR /var/www/html
+
+# Stage 1 と Stage 2 から成果物をコピー（Composer 自体は runtime に持ち込まない）
+COPY --from=composer-deps /app/vendor ./vendor
+COPY --from=frontend-build /app/public/build ./public/build
+
+# アプリコード本体
+COPY . .
+
+# composer autoload 最適化（実コードを配置後に再生成）
+# vendor のテスト・ドキュメント・チェンジログ等を削除して軽量化（-30MB 程度）
+# Composer は build 時のみ必要なので、最後に削除
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
+RUN composer dump-autoload --optimize --no-dev --no-interaction \
+    && composer clear-cache \
+    && find ./vendor -type d \( \
+        -name tests -o -name test -o -name Tests -o -name Test \
+        -o -name docs -o -name doc -o -name documentation \
+        -o -name examples -o -name example -o -name samples \
+        \) -prune -exec rm -rf {} + 2>/dev/null \
+    && find ./vendor -type f \( \
+        -name "*.md" -o -name "*.markdown" -o -name "*.rst" \
+        -o -name "CHANGELOG*" -o -name "HISTORY*" -o -name "UPGRADE*" \
+        -o -name "phpunit.xml*" -o -name "phpunit.dist*" \
+        -o -name ".gitattributes" -o -name ".gitignore" -o -name ".editorconfig" \
+        -o -name ".travis.yml" -o -name ".scrutinizer.yml" \
+        \) -delete 2>/dev/null \
+    && rm -f /usr/local/bin/composer \
+    && rm -rf ~/.composer /tmp/*
+
+# storage / bootstrap/cache 権限
+RUN chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R ug+rwx storage bootstrap/cache
+
+# nginx / supervisord / entrypoint
+COPY docker/php/nginx.conf /etc/nginx/nginx.conf
+COPY docker/php/supervisord.conf /etc/supervisor/supervisord.conf
+COPY docker/php/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# nginx ランタイムディレクトリ
+RUN mkdir -p /run/nginx /var/log/nginx \
+    && chown -R www-data:www-data /run/nginx /var/log/nginx
+
+EXPOSE 80
+
+# tini を PID 1 に、entrypoint.sh で初期化、CMD で実プロセス起動
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/entrypoint.sh"]
+
+# デフォルトコマンド: web タスク用 supervisord（nginx + php-fpm 同居）
+# worker タスクでは ECS タスク定義で
+#   command: ["php", "artisan", "queue:work", "--tries=3", "--max-time=3600", "--sleep=3"]
+# に上書きする
+CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]

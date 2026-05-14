@@ -11,56 +11,16 @@ use Symfony\Component\Process\Process;
 class VideoEncoderService
 {
     /**
-     * 動画をエンコードする（リトライロジック付き）
-     *
-     * @param Video $video
-     * @return bool
-     */
-    public function encodeWithRetry(Video $video): bool
-    {
-        $maxRetries = 3;
-
-        while ($video->retry_count < $maxRetries) {
-            Log::info("動画エンコード開始 (試行 " . ($video->retry_count + 1) . "/{$maxRetries}): {$video->id}");
-
-            try {
-                $success = $this->encode($video);
-
-                if ($success) {
-                    Log::info("動画エンコード成功: {$video->id}");
-                    return true;
-                }
-
-                // エンコード失敗時
-                $video->increment('retry_count');
-                Log::warning("動画エンコード失敗 (リトライ {$video->retry_count}/{$maxRetries}): {$video->id}");
-
-            } catch (\Exception $e) {
-                $video->increment('retry_count');
-                $errorMessage = $e->getMessage();
-
-                Log::error("動画エンコードエラー (リトライ {$video->retry_count}/{$maxRetries}): {$video->id}, エラー: {$errorMessage}");
-
-                // エラーメッセージを保存
-                $video->update(['error_message' => $errorMessage]);
-            }
-        }
-
-        // 3回失敗後
-        $video->update(['status' => 'failed']);
-        Log::error("動画エンコード最終失敗: {$video->id}");
-
-        return false;
-    }
-
-    /**
      * 動画をエンコードする（1回の試行）
+     *
+     * Phase 7 以降、リトライは Laravel Queue の $tries に任せる。
+     * 例外が発生した場合はそのまま投げ、Job 側でエラーメッセージを保存する。
      *
      * @param Video $video
      * @return bool
      * @throws \Exception
      */
-    private function encode(Video $video): bool
+    public function encode(Video $video): bool
     {
         // S3から元動画をダウンロード
         $extension = pathinfo($video->original_path, PATHINFO_EXTENSION);

@@ -16,6 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // グローバルミドルウェア: セキュリティヘッダーを付与
         $middleware->append(SecurityHeadersMiddleware::class);
 
+        // リバプロ配下の信頼設定(ホスト nginx → ECS コンテナ内 nginx → PHP-FPM)
+        // X-Forwarded-Proto を信頼させて HTTPS 配下と認識させる(asset/url の http:// 防止)
+        $middleware->trustProxies(at: '*');
+
         $middleware->alias([
             'admin' => AdminMiddleware::class,
         ]);

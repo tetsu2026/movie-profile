@@ -129,9 +129,19 @@ COPY docker/php/supervisord.conf /etc/supervisor/supervisord.conf
 COPY docker/php/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+# PHP 設定(動画アップロード上限・メモリ・実行時間)
+# php.ini-production をベースに conf.d でアプリ固有設定を上書きする方式
+COPY docker/php/php.ini /usr/local/etc/php/conf.d/zz-app.ini
+
 # nginx ランタイムディレクトリ
 RUN mkdir -p /run/nginx /var/log/nginx \
     && chown -R www-data:www-data /run/nginx /var/log/nginx
+
+# nginx 一時ディレクトリ(client_body / proxy / fastcgi 等)を www-data 所有に統一
+# Alpine の nginx パッケージは /var/lib/nginx を nginx ユーザー専有(drwx------)で作成するが、
+# 本コンテナでは nginx ワーカーを www-data で動かすため、所有者を統一しないと
+# 大きい POST(動画アップロード等)で client_body 一時ファイル書き込みが Permission denied で失敗する
+RUN chown -R www-data:www-data /var/lib/nginx
 
 EXPOSE 80
 

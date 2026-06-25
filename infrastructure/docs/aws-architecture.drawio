@@ -1,0 +1,131 @@
+<mxfile host="65bd71144e">
+    <diagram name="AWS構成図" id="resume-arch">
+        <mxGraphModel dx="1404" dy="1129" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="900" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="動画プロフィールサービス AWS構成図（Laravel版 / NestJS・React版 共通インフラ）" style="text;html=1;align=center;verticalAlign=middle;fontSize=15;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="120" y="16" width="760" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="browser" value="ブラウザ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="450" y="60" width="160" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="route53" value="Route 53（DNS）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="693" y="62" width="180" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="xdns" value="名前解決" style="endArrow=block;html=1;dashed=1;fontSize=10;" parent="1" source="browser" target="route53" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lvurl" value="https://hozu.click&#10;（Laravel / Let's Encrypt）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="170" y="140" width="200" height="46" as="geometry"/>
+                </mxCell>
+                <mxCell id="ndurl" value="https://node.hozu.click&#10;（NestJS・React SPA）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="700" y="140" width="200" height="46" as="geometry"/>
+                </mxCell>
+                <mxCell id="cf" value="CloudFront（ACM us-east-1）&#10;Behavior /*    → S3（SPA静的・キャッシュ有効）&#10;Behavior /api/* → EC2 オリジン" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=8;" parent="1" vertex="1">
+                    <mxGeometry x="650" y="220" width="300" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="ec2" value="EC2（Elastic IP）　Docker Engine + ECS agent　／　ECS on EC2（launch type: EC2）" style="rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;fontStyle=1;align=left;spacingLeft=10;spacingTop=8;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="330" width="640" height="300" as="geometry"/>
+                </mxCell>
+                <mxCell id="hostnginx" value="ホスト nginx（SSL終端 / リバプロ・Let's Encrypt）&#10;:443  →  127.0.0.1:8080（Laravel） / 127.0.0.1:8081（NestJS）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="130" y="370" width="580" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="lvweb" value="ECSタスク laravel-web&#10;nginx + php-fpm + ffmpeg　:8080" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="130" y="448" width="270" height="56" as="geometry"/>
+                </mxCell>
+                <mxCell id="ndapi" value="ECSタスク nodejs-api&#10;NestJS + BullMQ　:8081" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="448" width="270" height="56" as="geometry"/>
+                </mxCell>
+                <mxCell id="lvworker" value="ECSタスク laravel-worker&#10;queue:work（非同期エンコード）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="130" y="541" width="270" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="redis" value="Redis（EC2ホストに直接install・systemd）&#10;BullMQ 専用 / nodejs-api" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="541" width="270" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="rds" value="RDS（PostgreSQL）＋ pgvector（HNSW）　★Laravel版 /&amp;nbsp;&lt;span style=&quot;font-weight: 400;&quot;&gt;NestJS・React&lt;/span&gt;版で共有&lt;br&gt;Laravel Queue の jobs テーブルも同一RDS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="210" y="678" width="520" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="ecr" value="ECR&#10;laravel-web / laravel-worker /&#10;nodejs-api イメージ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="835" y="330" width="280" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="s3" value="S3&#10;動画ストレージ + SPA静的配信" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="835" y="430" width="280" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="bedrock" value="Amazon Bedrock&#10;Nova Lite ＋ Titan Embeddings&#10;RAGチャットボット（Laravel）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="835" y="520" width="280" height="74" as="geometry"/>
+                </mxCell>
+                <mxCell id="cicd" value="GitHub Actions（OIDC・鍵レス）&#10;→ ECR push / ECS deploy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="835" y="624" width="280" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="x1" style="endArrow=block;html=1;" parent="1" source="browser" target="lvurl" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="x2" style="endArrow=block;html=1;" parent="1" source="browser" target="ndurl" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="x3" value="HTTPS（直）" style="endArrow=block;html=1;fontSize=10;" parent="1" source="lvurl" target="hostnginx" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="x4" value="HTTPS（CDN経由）" style="endArrow=block;html=1;fontSize=10;" parent="1" source="ndurl" target="cf" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="x5" value="/* SPA" style="endArrow=block;html=1;fontSize=10;" parent="1" edge="1">
+                    <mxGeometry x="-0.5807" y="-1" relative="1" as="geometry">
+                        <mxPoint x="800.9024390243903" y="290" as="sourcePoint"/>
+                        <mxPoint x="896.5121951219512" y="430" as="targetPoint"/>
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="x6" value="/api/*" style="endArrow=block;html=1;fontSize=10;" parent="1" source="cf" target="hostnginx" edge="1">
+                    <mxGeometry x="-0.221" y="-1" relative="1" as="geometry">
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="x7" value=":8080" style="endArrow=block;html=1;fontSize=10;" parent="1" source="hostnginx" target="lvweb" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="x8" value=":8081" style="endArrow=block;html=1;fontSize=10;" parent="1" source="hostnginx" target="ndapi" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="x9" style="endArrow=block;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;" parent="1" source="lvweb" target="rds" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="x10" value="Queue(jobs)" style="endArrow=block;html=1;fontSize=10;exitX=0.5;exitY=1;" parent="1" source="lvworker" target="rds" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="x11" style="endArrow=block;html=1;fontSize=10;exitX=0.5;exitY=1;" parent="1" edge="1">
+                    <mxGeometry x="0.232" y="-3" relative="1" as="geometry">
+                        <mxPoint x="535" y="504" as="sourcePoint"/>
+                        <mxPoint x="449.62616822429914" y="678" as="targetPoint"/>
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="x12" value="BullMQ" style="endArrow=block;html=1;fontSize=10;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="568" y="504" as="sourcePoint"/>
+                        <mxPoint x="568" y="541" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="x13" value="動画" style="endArrow=block;html=1;fontSize=10;exitX=1;exitY=0.25;exitDx=0;exitDy=0;" parent="1" edge="1">
+                    <mxGeometry x="0.4085" relative="1" as="geometry">
+                        <mxPoint x="400" y="457" as="sourcePoint"/>
+                        <mxPoint x="826" y="455.4946996466431" as="targetPoint"/>
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="x14" value="RAG / 生成" style="endArrow=block;html=1;fontSize=10;exitX=1;exitY=0.75;exitDx=0;exitDy=0;" parent="1" source="lvweb" target="bedrock" edge="1">
+                    <mxGeometry x="0.6887" y="3" relative="1" as="geometry">
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="x15" value="image pull" style="endArrow=block;html=1;dashed=1;fontSize=10;" parent="1" source="ecr" target="ec2" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="x16" style="endArrow=block;html=1;dashed=1;" parent="1" source="cicd" target="ecr" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

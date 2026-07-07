@@ -4,15 +4,15 @@
 **NestJS・React版**（[movie-profile-node](https://github.com/tetsu2026/movie-profile-node)）と
 **同一サービスを別スタックで実装**し、本番では**同一の RDS PostgreSQL を共有**しています。
 
-🔗 **デモ**: https://hozu.click/
+🔗 **公開サイト**: https://hozu.click/
 
 > Laravel 11 + PHP 8.2 / PostgreSQL（pgvector）/ AWS（ECS on EC2・S3・SES・Bedrock）
 
-## デモ
+## 動作確認
 
 ### 動作確認用アカウント
 
-動作確認用アカウントは、応募書類（職務経歴書「個人開発」の項）に記載しています。
+動作確認用アカウントは、応募書類（職務経歴書 5ページ目「個人開発」の項）に記載しています。
 
 > Laravel版・NestJS版は **同一アカウントでログイン可能**です（DB共有のため）。
 

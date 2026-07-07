@@ -1,201 +1,124 @@
-# 動画プロフィール(Laravel版)
+# 動画プロフィール（Laravel版）
 
-ユーザーが動画を使った自己紹介ページを作成・公開できるプラットフォーム
+動画を使った自己紹介ページを作成・公開できる Web サービス。
+**NestJS・React版**（[movie-profile-node](https://github.com/tetsu2026/movie-profile-node)）と
+**同一サービスを別スタックで実装**し、本番では**同一の RDS PostgreSQL を共有**しています。
+
+🔗 **デモ**: https://hozu.click/
+
+> Laravel 11 + PHP 8.2 / PostgreSQL（pgvector）/ AWS（ECS on EC2・S3・SES・Bedrock）
+
+## デモ
+
+### 動作確認用アカウント
+
+動作確認用アカウントは、応募書類（職務経歴書「個人開発」の項）に記載しています。
+
+> Laravel版・NestJS版は **同一アカウントでログイン可能**です（DB共有のため）。
+
+## 主な機能
+
+- ユーザー登録・ログイン（メール認証つき）
+- プロフィール作成と**公開ページ**の表示
+- **動画アップロード → 自動エンコード**（H.264 / 最大1080p / mp4）
+- 動画つきプロフィールの公開
+- 管理者によるユーザー・動画の管理
+- **AIチャットボット**（AWS Bedrock + pgvector による RAG）
 
 ## 技術スタック
 
 - **バックエンド**: Laravel 11.x + PHP 8.2
-- **データベース**: MySQL 8.0
-- **ローカル開発環境**: Docker + Docker Compose
-- **動画処理**: FFmpeg
-- **ストレージ**: AWS S3 (ローカルはMinIO)
 - **フロントエンド**: Blade + Tailwind CSS
+- **データベース**: PostgreSQL 16（pgvector 拡張）
+- **動画処理**: FFmpeg（メタデータ取得に getid3）
+- **ストレージ**: AWS S3（ローカルは MinIO）
+- **メール**: AWS SES（メール認証）
+- **生成AI**: AWS Bedrock（Amazon Nova Lite + Titan Embeddings V2）
+- **インフラ**: AWS（ECS on EC2・ECR・RDS・S3）/ ローカルは Docker Compose
 
-## 開発環境セットアップ
+## アーキテクチャ（本番 / AWS）
 
-### 必要な環境
+```
+ユーザー
+  │  HTTPS（hozu.click 直）
+  ▼
+EC2（t3.micro / Elastic IP）
+  ├─ host nginx … SSL終端（Let's Encrypt）+ リバースプロキシ
+  │     └─ :8080 → ECS タスク laravel-web（nginx + PHP-FPM）
+  │                 └─ laravel-worker（キュー処理 / 同一クラスタ）
+  └─ ECS on EC2（クラスタ: movie-prf / 起動タイプ EC2）
+        ▼
+   ┌──────────── 共有 ────────────┐
+   │ RDS PostgreSQL（pgvector） │ ← NestJS版と共有
+   │ S3（動画オリジナル/エンコード済）│
+   │ ECR（コンテナイメージ）        │
+   │ SES（メール認証）             │
+   │ Bedrock（Nova / Titan）      │
+   └──────────────────────────────┘
+```
 
-- Docker Desktop
-- Docker Compose
+- **Webルーティング**: `hozu.click` は EC2 の host nginx が直接受け（CloudFront 不経由）、`laravel-web`（:8080）へプロキシ。
+- **キュー**: `QUEUE_CONNECTION=database`。**RDS の `jobs` テーブル**を使い、`laravel-worker` が非同期で動画エンコードを処理（Redis 不使用）。
+- **動画処理フロー**: アップロード → S3 保存 → `laravel-worker` が FFmpeg でエンコード → S3 に保存。
 
-### セットアップ手順
+## 工夫した点・技術的こだわり
 
-1. **リポジトリのクローン**
+- **同一サービスを Laravel版と NestJS・React版の2スタックで実装**し、本番で **RDS PostgreSQL を共有**。設計から本番運用・デプロイまで一人で構築。
+- **AWS Bedrock + pgvector で RAG チャットボットを実装**：生成に Amazon Nova Lite（Converse API）、埋め込みに Titan Embeddings V2（1024次元）、検索に pgvector（HNSW / コサイン類似度）。ドキュメントをチャンク化して近傍検索 → 回答生成。
+- **キューを RDS の `jobs` テーブルで実現**し、Redis 等の追加ミドルウェアなしで非同期エンコードを構成（**コスト最適化**）。
+- **ALB を使わず EC2 ホストの nginx に SSL終端＋リバースプロキシを担わせ**、ロードバランサ費用（月$16〜相当）を回避。さらに **Fargate ではなく ECS on EC2（単一 t3.micro）に全タスクを集約**し、証明書は Let's Encrypt（無料）とすることで**月額コストを抑制**（目標 $30以下）。
+- **DBスキーマの主導権を Laravel migration に集約**し、NestJS版（Prisma）は `prisma db pull` で追従させる運用を確立。
+
+## ローカル開発
+
 ```bash
 git clone https://github.com/tetsu2026/movie-profile.git
 cd movie-profile
-```
-
-2. **Dockerコンテナの起動**
-```bash
 docker-compose up -d
-```
 
-3. **Laravelプロジェクトの初期化**（Issue #2で実施）
-```bash
-# srcディレクトリにLaravelをインストール（次のIssueで実施）
-docker-compose exec app composer create-project laravel/laravel .
-docker-compose exec app composer install
 docker-compose exec app cp .env.example .env
-docker-compose exec app php artisan key:generate
-```
-
-4. **データベースマイグレーション**（Issue #3で実施）
-```bash
-docker-compose exec app php artisan migrate
-```
-
-5. **動作確認**
-- ブラウザで http://localhost にアクセス
-- MinIO管理画面: http://localhost:9001 (ID: minioadmin / Pass: minioadmin)
-
-### コンテナ操作コマンド
-
-```bash
-# コンテナ起動
-docker-compose up -d
-
-# コンテナ停止
-docker-compose down
-
-# コンテナ状態確認
-docker-compose ps
-
-# ログ確認
-docker-compose logs -f app
-
-# appコンテナ内でコマンド実行
-docker-compose exec app bash
-docker-compose exec app php artisan migrate
 docker-compose exec app composer install
-
-# データベース接続
-docker-compose exec db mysql -u root -proot movie_prf
+docker-compose exec app php artisan key:generate
+docker-compose exec app php artisan migrate
+docker-compose exec app npm install && docker-compose exec app npm run build
 ```
 
-### 主なコンテナ
+- アプリ: http://localhost ／ MinIO 管理画面: http://localhost:9001（minioadmin / minioadmin）
 
-| サービス | コンテナ名 | ポート | 用途 |
-|---------|-----------|--------|------|
-| web | movie_prf_web | 80 | Nginx Webサーバー |
-| app | movie_prf_app | - | PHP + Laravel |
-| db | movie_prf_db | 3306 | MySQL 8.0 |
-| minio | movie_prf_minio | 9000, 9001 | S3エミュレータ |
+| サービス | ポート | 用途 |
+|---------|--------|------|
+| web | 80 | Nginx Webサーバー |
+| app | - | PHP 8.2 + Laravel |
+| db | 5432 | PostgreSQL 16（pgvector） |
+| minio | 9000 / 9001 | S3 エミュレータ |
 
-## コーディング規約
-
-### 命名規則
-
-| 対象 | ルール | 例 |
-|------|--------|------|
-| クラス名 | PascalCase | `VideoController`, `ProfileService` |
-| メソッド名 | camelCase | `uploadVideo()`, `encodeVideo()` |
-| 変数名 | camelCase | `$userId`, `$encodedPath` |
-| 定数 | UPPER_SNAKE_CASE | `MAX_FILE_SIZE`, `ENCODING_TIMEOUT` |
-| DBテーブル | snake_case（複数形） | `users`, `profiles`, `videos` |
-| DBカラム | snake_case | `user_id`, `created_at` |
-
-### コードスタイル
-
-- PSR-12 準拠（PHP 4スペース、Blade 2スペース）
-- Tailwind CSS ユーティリティクラスのみ使用（カスタムCSS禁止）
-- Eloquent モデル: テーブル名は複数形、モデル名は単数形
-- バリデーション: FormRequest クラスを使用
-- ビジネスロジック: `app/Services/` に分離
-
-### Bladeテンプレート構成
+## ディレクトリ構成
 
 ```
-resources/views/
-├── layouts/
-│   ├── app.blade.php        # 共通レイアウト
-│   └── guest.blade.php      # 未認証ユーザー用レイアウト
-├── components/              # 再利用可能なコンポーネント
-├── dashboard/               # 認証ユーザー向け画面
-│   ├── index.blade.php
-│   ├── profile/
-│   └── videos/
-├── users/                   # 公開プロフィールページ
-│   └── show.blade.php
-└── admin/                   # 管理者専用画面
-    └── users/
+├── app/                  # アプリ本体（Http / Models / Services / Jobs）
+├── docker/               # Docker設定（nginx / php）
+├── docs/                 # 設計書（design-docs ほか）
+├── infrastructure/       # CloudFormation・デプロイ補助・構成図
+├── scripts/              # deploy-laravel.sh（ECSデプロイ）
+├── resources/views/      # Bladeテンプレート
+└── docker-compose.yml    # ローカル開発用
 ```
 
-## プロジェクト構成
-
-```
-.
-├── docker/               # Docker設定ファイル
-│   ├── nginx/           # Nginx設定
-│   └── php/             # PHP設定
-├── docs/                # 設計書・ドキュメント
-│   ├── design-docs/    # アーキテクチャ・DB設計など
-│   └── issues/         # GitHub Issue定義
-├── src/                 # Laravelアプリケーション
-├── docker-compose.yml   # Docker Compose設定
-├── .env.example         # 環境変数テンプレート
-└── README.md           # このファイル
-```
+> デプロイは `scripts/deploy-laravel.sh`（ECR `movie-prf-laravel` ビルド/プッシュ → ECS `laravel-web`/`laravel-worker` 更新）。
 
 ## 設計書
 
-- [要件定義書](docs/requirments/01_requirements.md)
-- [アーキテクチャ設計](docs/design-docs/02_architecture.md)
-- [データベース設計](docs/design-docs/03_database.md)
-- [サイトマップ](docs/design-docs/04_sitemap.md)
-- [データフロー](docs/design-docs/05_data_flow.md)
-- [ルーティング設計](docs/design-docs/06_routing.md)
-- [画面設計](docs/design-docs/07_screen_design.md)
-- [動画ステートマシン](docs/design-docs/08_state_machine_video.md)
-- [ER図](docs/design-docs/09_er.md)
-
-## 開発フェーズ
-
-### Phase 0: Walking Skeleton（#1〜#6）
-環境構築とエンドツーエンド動作確認
-
-### Phase 1: MVP Core（#7〜#14）
-プロフィール作成・公開ページ表示・動画アップロード機能
-
-### Phase 2: 動画処理（#15〜#18）
-動画エンコード処理の実装
-
-### Phase 3: 管理・運用（#19〜#22）
-管理者機能と運用に必要な機能
-
-### Phase 4: 堅牢化（#23〜#26）
-テスト・セキュリティ強化・パフォーマンス最適化
-
-## トラブルシューティング
-
-### ポート競合エラー
-```bash
-# 使用中のポートを確認
-lsof -i :80
-lsof -i :3306
-
-# 競合するサービスを停止するか、docker-compose.ymlのポート番号を変更
-```
-
-### 権限エラー
-```bash
-# srcディレクトリの権限を修正
-sudo chown -R $USER:$USER src/
-chmod -R 755 src/
-```
-
-### データベース接続エラー
-```bash
-# データベースコンテナのログ確認
-docker-compose logs db
-
-# データベース接続テスト
-docker-compose exec db mysql -u root -proot -e "SELECT 1"
-```
-
-## ライセンス
-
-MIT License
+| ドキュメント | パス |
+|------------|------|
+| 要件定義書 | `docs/requirements/01_requirements.md` |
+| アーキテクチャ設計 | `docs/design-docs/02_architecture.md` |
+| データベース設計 | `docs/design-docs/03_database.md` |
+| サイトマップ | `docs/design-docs/04_sitemap.md` |
+| データフロー | `docs/design-docs/05_data_flow.md` |
+| ルーティング | `docs/design-docs/06_routing.md` |
+| 画面設計 | `docs/design-docs/07_screen_design.md` |
+| ステートマシン | `docs/design-docs/08_state_machine_video.md` |
+| ER図 | `docs/design-docs/09_er.md` |
 
 ## 作者
 

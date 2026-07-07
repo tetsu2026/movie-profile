@@ -125,6 +125,15 @@
                 <mxCell id="x16" style="endArrow=block;html=1;dashed=1;" parent="1" source="cicd" target="ecr" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
+                <mxCell id="ses" value="SES&#10;メール認証（確認メール送信・Laravel）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="835" y="708" width="280" height="52" as="geometry"/>
+                </mxCell>
+                <mxCell id="x17" value="確認メール" style="endArrow=block;html=1;fontSize=10;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" parent="1" source="lvweb" target="ses" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="x18" value="動画" style="endArrow=block;html=1;fontSize=10;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" parent="1" source="ndapi" target="s3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
             </root>
         </mxGraphModel>
     </diagram>
